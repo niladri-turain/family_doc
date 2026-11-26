@@ -6,13 +6,16 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../core/widgets/dashed_border_box.dart';
+import '../../../core/widgets/app_confirm_dialog.dart';
 import '../../../core/widgets/skeleton_line.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../categories/data/models/document_category.dart';
 import '../../categories/presentation/providers/category_provider.dart';
+import '../../categories/presentation/widgets/add_category_sheet.dart';
 import '../../family/data/models/family_member.dart';
 import '../../family/presentation/providers/family_provider.dart';
+import 'widgets/add_category_button.dart';
+import 'widgets/category_actions_sheet.dart';
 import 'widgets/category_card.dart';
 import 'widgets/member_switcher.dart';
 import 'widgets/total_documents_card.dart';
@@ -90,6 +93,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
   }
 
+  /// New card shows up at the end of the grid; no success snackbar.
+  Future<void> _addCategory() => showAddCategorySheet(context);
+
+  /// ⋯ on a custom category → Edit (same sheet, prefilled) or Delete.
+  Future<void> _categoryActions(DocumentCategory category) async {
+    final action = await showCategoryActionsSheet(context, category);
+    if (!mounted || action == null) return;
+    switch (action) {
+      case CategoryAction.edit:
+        await showAddCategorySheet(context, category: category);
+      case CategoryAction.delete:
+        await _deleteCategory(category);
+    }
+  }
+
+  Future<void> _deleteCategory(DocumentCategory category) async {
+    final ok = await showAppConfirmDialog(
+      context,
+      title: 'Delete ${category.name}?',
+      message:
+          'This category will be removed from your dashboard. '
+          "This can't be undone.",
+      confirmLabel: 'Delete',
+    );
+    if (!ok || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.read<CategoryProvider>().deleteCategory(category);
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final family = context.watch<FamilyProvider>();
@@ -133,41 +169,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 12),
               _categories(categoryState, member),
-              if (categories.isNotEmpty && total == 0) ...[
+              if (categoryState.hasLoaded) ...[
                 const SizedBox(height: 16),
-                DashedBorderBox(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.file_upload_outlined,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          member == null
-                              ? 'Tap a category to upload your first document'
-                              : 'Tap a category to upload '
-                                    "${member.fullName.split(' ').first}'s "
-                                    'first document',
-                          style: AppTextStyles.body.copyWith(
-                            fontSize: 14,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                AddCategoryButton(onTap: _addCategory),
               ],
             ],
           ),
@@ -243,7 +247,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     return _grid([
       for (final c in state.categories)
-        CategoryCard(category: c, onTap: () => _openCategory(c, member)),
+        CategoryCard(
+          category: c,
+          onTap: () => _openCategory(c, member),
+          onMore: c.isCustom ? () => _categoryActions(c) : null,
+        ),
     ]);
   }
 

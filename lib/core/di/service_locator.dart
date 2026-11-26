@@ -42,7 +42,5 @@ Future<void> setupLocator({
 
   // Categories
   sl.registerLazySingleton<CategoryService>(() => CategoryService(sl()));
-  sl.registerFactory<CategoryProvider>(
-    () => CategoryProvider(service: sl()),
-  );
+  sl.registerFactory<CategoryProvider>(() => CategoryProvider(service: sl()));
 }
