@@ -12,6 +12,7 @@ import '../../auth/presentation/providers/auth_provider.dart';
 import '../../categories/data/models/document_category.dart';
 import '../../categories/presentation/providers/category_provider.dart';
 import '../../categories/presentation/widgets/add_category_sheet.dart';
+import '../../documents/presentation/category_documents_screen.dart';
 import '../../family/data/models/family_member.dart';
 import '../../family/presentation/providers/family_provider.dart';
 import 'widgets/add_category_button.dart';
@@ -84,13 +85,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _openCategory(DocumentCategory category, FamilyMember? member) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Uploading to ${category.name} is coming next.'),
-        ),
-      );
+    Navigator.pushNamed(
+      context,
+      AppRoutes.categoryDocuments,
+      arguments: CategoryDocumentsArgs(category: category, member: member),
+    );
   }
 
   /// New card shows up at the end of the grid; no success snackbar.

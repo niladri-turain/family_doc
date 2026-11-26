@@ -25,4 +25,7 @@ class ApiEndpoints {
   static const String categories = '/api/v1/categories';
   static const String userCategories = '/api/v1/user-categories';
   static String userCategory(int id) => '$userCategories/$id';
+
+  // Documents
+  static const String documentTypes = '/api/v1/document-types';
 }
