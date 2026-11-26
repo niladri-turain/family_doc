@@ -63,7 +63,14 @@ class AppPrimaryButton extends StatelessWidget {
                     Icon(leadingIcon, size: 20),
                     const SizedBox(width: AppSizes.sm),
                   ],
-                  Text(label, style: AppTextStyles.button),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.button,
+                    ),
+                  ),
                   if (trailingIcon != null) ...[
                     const SizedBox(width: AppSizes.sm),
                     Icon(trailingIcon, size: 18),

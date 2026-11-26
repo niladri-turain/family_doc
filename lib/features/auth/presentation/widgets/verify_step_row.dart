@@ -29,9 +29,14 @@ class VerifyStepRow extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: const BoxDecoration(
-              color: AppColors.success, shape: BoxShape.circle),
-          child: const Icon(Icons.check_rounded,
-              size: 16, color: AppColors.white),
+            color: AppColors.success,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            size: 16,
+            color: AppColors.white,
+          ),
         );
       case StepStatus.running:
         leading = const SizedBox(
@@ -70,8 +75,9 @@ class VerifyStepRow extends StatelessWidget {
               label,
               style: AppTextStyles.label.copyWith(
                 fontSize: 14,
-                fontWeight:
-                    status == StepStatus.running ? FontWeight.w700 : FontWeight.w600,
+                fontWeight: status == StepStatus.running
+                    ? FontWeight.w700
+                    : FontWeight.w600,
                 color: switch (status) {
                   StepStatus.running => AppColors.primary,
                   StepStatus.done => AppColors.textPrimary,

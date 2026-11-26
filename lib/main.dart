@@ -10,7 +10,7 @@ Future<void> main() async {
   await setupLocator();
 
   final loggedIn = await sl<TokenStorage>().hasToken;
-  runApp(FamilyDocApp(
-    initialRoute: loggedIn ? AppRoutes.dashboard : AppRoutes.welcome,
-  ));
+  runApp(
+    FamilyDocApp(initialRoute: loggedIn ? AppRoutes.family : AppRoutes.welcome),
+  );
 }

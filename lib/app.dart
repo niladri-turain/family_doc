@@ -6,11 +6,13 @@ import 'core/di/service_locator.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/categories/presentation/providers/category_provider.dart';
+import 'features/family/presentation/providers/family_provider.dart';
 
 class FamilyDocApp extends StatelessWidget {
   const FamilyDocApp({super.key, this.initialRoute = AppRoutes.welcome});
 
-  /// Dashboard when a token is already saved, otherwise Welcome.
+  /// My Family when a token is already saved, otherwise Welcome.
   final String initialRoute;
 
   @override
@@ -18,6 +20,12 @@ class FamilyDocApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>(create: (_) => sl<AuthProvider>()),
+        ChangeNotifierProvider<FamilyProvider>(
+          create: (_) => sl<FamilyProvider>(),
+        ),
+        ChangeNotifierProvider<CategoryProvider>(
+          create: (_) => sl<CategoryProvider>(),
+        ),
       ],
       child: MaterialApp(
         title: AppStrings.appName,
@@ -30,7 +38,8 @@ class FamilyDocApp extends StatelessWidget {
         onGenerateInitialRoutes: (name) => [
           MaterialPageRoute(
             settings: RouteSettings(name: name),
-            builder: AppRoutes.routes[name] ?? AppRoutes.routes[AppRoutes.welcome]!,
+            builder:
+                AppRoutes.routes[name] ?? AppRoutes.routes[AppRoutes.welcome]!,
           ),
         ],
       ),

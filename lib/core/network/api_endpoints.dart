@@ -12,4 +12,15 @@ class ApiEndpoints {
   // Auth
   static const String requestOtp = '/api/v1/auth/otp/request';
   static const String verifyOtp = '/api/v1/auth/otp/verify';
+  static const String logout = '/api/v1/auth/logout';
+
+  // User
+  static const String me = '/api/v1/users/me';
+
+  // Family members (bearer token required)
+  static const String familyMembers = '/api/v1/family-members';
+  static String familyMember(int id) => '$familyMembers/$id';
+
+  // Document categories
+  static const String categories = '/api/v1/categories';
 }

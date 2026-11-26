@@ -13,8 +13,8 @@ class AuthProvider extends ChangeNotifier {
     required AuthService service,
     required TokenStorage tokens,
     this.stepDelay = const Duration(milliseconds: 900),
-  })  : _service = service,
-        _tokens = tokens;
+  }) : _service = service,
+       _tokens = tokens;
 
   final AuthService _service;
   final TokenStorage _tokens;
@@ -87,7 +87,33 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> get isLoggedIn => _tokens.hasToken;
 
+  bool _isLoadingProfile = false;
+  bool get isLoadingProfile => _isLoadingProfile;
+
+  /// GET /users/me — fills [user] (mobile number) for the Profile screen.
+  /// Throws [ApiException] so the screen can react to 401.
+  Future<void> loadProfile() async {
+    _isLoadingProfile = true;
+    notifyListeners();
+    try {
+      _user = await _service.getMe();
+    } finally {
+      _isLoadingProfile = false;
+      notifyListeners();
+    }
+  }
+
+  /// Revokes the refresh token on the server (best effort, so logout works
+  /// offline too) and removes both tokens from the phone.
   Future<void> logout() async {
+    final refresh = await _tokens.refreshToken;
+    if (refresh != null && refresh.isNotEmpty) {
+      try {
+        await _service.logout(refresh);
+      } catch (_) {
+        // Already expired / no internet: still log out locally.
+      }
+    }
     await _tokens.clear();
     _user = null;
     _setStep(AuthStep.idle);

@@ -10,7 +10,7 @@ import 'widgets/verify_step_row.dart';
 
 /// Opened with the 10-digit mobile number as route argument.
 /// Runs [AuthProvider.login]: request OTP → verify with that OTP → save token.
-/// Success → Dashboard. Failure → back to Login with the error message.
+/// Success → My Family. Failure → back to Login with the error message.
 class VerifyingScreen extends StatefulWidget {
   const VerifyingScreen({super.key});
 
@@ -34,7 +34,10 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
     if (!mounted) return;
     if (ok) {
       Navigator.pushNamedAndRemoveUntil(
-          context, AppRoutes.dashboard, (_) => false);
+        context,
+        AppRoutes.family,
+        (_) => false,
+      );
     } else {
       Navigator.pop(context, auth.error);
     }
@@ -47,16 +50,17 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final otpDone = auth.step == AuthStep.verifyingOtp ||
-        auth.step == AuthStep.success;
+    final otpDone =
+        auth.step == AuthStep.verifyingOtp || auth.step == AuthStep.success;
 
     return PopScope(
       canPop: false,
       child: Scaffold(
         body: SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.screenPadding,
+            ),
             child: Column(
               children: [
                 const SizedBox(height: 90),
@@ -68,8 +72,9 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
                     children: [
                       Container(
                         decoration: const BoxDecoration(
-                            color: AppColors.primarySoft,
-                            shape: BoxShape.circle),
+                          color: AppColors.primarySoft,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox.expand(
                         child: CircularProgressIndicator(
@@ -85,22 +90,32 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(Icons.verified_user_outlined,
-                            color: AppColors.white, size: 30),
+                        child: const Icon(
+                          Icons.verified_user_outlined,
+                          color: AppColors.white,
+                          size: 30,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 36),
-                Text('Verifying your number',
-                    style: AppTextStyles.title.copyWith(fontSize: 24)),
+                Text(
+                  'Verifying your number',
+                  style: AppTextStyles.title.copyWith(fontSize: 24),
+                ),
                 const SizedBox(height: 10),
-                Text('$_formatted · this takes a few seconds',
-                    textAlign: TextAlign.center, style: AppTextStyles.body),
+                Text(
+                  '$_formatted · this takes a few seconds',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.body,
+                ),
                 const SizedBox(height: 40),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.border),
                     borderRadius: BorderRadius.circular(20),
@@ -109,20 +124,20 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
                     children: [
                       VerifyStepRow(
                         label: 'Login request sent',
-                        status:
-                            otpDone ? StepStatus.done : StepStatus.running,
+                        status: otpDone ? StepStatus.done : StepStatus.running,
                       ),
                       VerifyStepRow(
                         label: 'OTP received from server',
-                        status:
-                            otpDone ? StepStatus.done : StepStatus.pending,
+                        status: otpDone ? StepStatus.done : StepStatus.pending,
                         trailing: otpDone ? auth.otpReceivedIn : null,
                       ),
                       VerifyStepRow(
                         label: 'Signing you in…',
                         status: auth.step == AuthStep.success
                             ? StepStatus.done
-                            : (otpDone ? StepStatus.running : StepStatus.pending),
+                            : (otpDone
+                                  ? StepStatus.running
+                                  : StepStatus.pending),
                         showDivider: false,
                       ),
                     ],

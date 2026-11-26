@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:family_doc/core/network/api_client.dart';
 import 'package:family_doc/core/network/api_exception.dart';
@@ -19,18 +20,19 @@ void main() {
   });
 
   ApiClient client(int status, Object? body) => ApiClient(
-        tokenStorage: tokens,
-        baseUrl: 'https://test.local',
-        client: MockClient((req) async {
-          last = req;
-          return http.Response(body == null ? '' : jsonEncode(body), status);
-        }),
-      );
+    tokenStorage: tokens,
+    baseUrl: 'https://test.local',
+    client: MockClient((req) async {
+      last = req;
+      return http.Response(body == null ? '' : jsonEncode(body), status);
+    }),
+  );
 
   test('GET sends bearer token, no body, query params', () async {
     await tokens.saveTokens(accessToken: 'abc');
-    final data = await client(200, {'ok': true})
-        .get('/api/v1/members', query: {'page': 1});
+    final data = await client(200, {
+      'ok': true,
+    }).get('/api/v1/members', query: {'page': 1});
     expect(data, {'ok': true});
     expect(last.method, 'GET');
     expect(last.url.toString(), 'https://test.local/api/v1/members?page=1');
@@ -54,9 +56,54 @@ void main() {
   test('non-2xx throws ApiException with server message', () async {
     expect(
       client(400, {'message': 'Invalid OTP'}).post('/x'),
-      throwsA(isA<ApiException>()
-          .having((e) => e.message, 'message', 'Invalid OTP')
-          .having((e) => e.statusCode, 'status', 400)),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.message, 'message', 'Invalid OTP')
+            .having((e) => e.statusCode, 'status', 400),
+      ),
     );
+  });
+
+  test('nested {"error": {"code","message"}} is parsed', () async {
+    expect(
+      client(409, {
+        'error': {'code': 'SELF_EXISTS', 'message': 'Self exists'},
+      }).post('/x'),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.message, 'message', 'Self exists')
+            .having((e) => e.code, 'code', 'SELF_EXISTS'),
+      ),
+    );
+  });
+
+  test('multipart sends fields and file with bearer token', () async {
+    await tokens.saveTokens(accessToken: 'abc');
+    final dir = await Directory.systemTemp.createTemp();
+    final file = File('${dir.path}/p.jpg')..writeAsBytesSync([1, 2, 3]);
+    late http.BaseRequest sent;
+    late String raw;
+    final api = ApiClient(
+      tokenStorage: tokens,
+      baseUrl: 'https://test.local',
+      client: MockClient.streaming((req, stream) async {
+        sent = req;
+        raw = utf8.decode(await stream.toBytes(), allowMalformed: true);
+        return http.StreamedResponse(
+          Stream.value(utf8.encode('{"member":{}}')),
+          201,
+        );
+      }),
+    );
+    await api.multipart(
+      '/m',
+      fields: {'fullName': 'A B'},
+      files: {'photo': file.path},
+    );
+    expect(sent.headers['Authorization'], 'Bearer abc');
+    expect(sent.headers['content-type'], startsWith('multipart/form-data'));
+    expect(raw, contains('name="fullName"'));
+    expect(raw, contains('name="photo"; filename="p.jpg"'));
+    expect(raw, contains('content-type: image/jpeg'));
   });
 }

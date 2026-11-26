@@ -23,6 +23,8 @@ class AppColors {
   static const Color textSecondary = Color(0xFF5B6478);
   static const Color textLabel = Color(0xFF334155);
   static const Color white = Color(0xFFFFFFFF);
+  static const Color disabledText = Color(0xFF94A3B8);
+  static const Color dashedBorder = Color(0xFFA5ACF5);
 
   // Status
   static const Color success = Color(0xFF0F766E);
@@ -33,14 +35,31 @@ class AppColors {
   static const Color errorText = Color(0xFF7F1D1D);
 
   // Document categories
-  static const CategoryColor education =
-      CategoryColor(Color(0xFF2563EB), Color(0xFFEAF1FF));
-  static const CategoryColor government =
-      CategoryColor(Color(0xFFC2410C), Color(0xFFFFF1E8));
-  static const CategoryColor assets =
-      CategoryColor(Color(0xFF0F766E), Color(0xFFE6F6F4));
-  static const CategoryColor health =
-      CategoryColor(Color(0xFFBE185D), Color(0xFFFDEBF3));
+  static const CategoryColor education = CategoryColor(
+    Color(0xFF2563EB),
+    Color(0xFFEAF1FF),
+  );
+  static const CategoryColor government = CategoryColor(
+    Color(0xFFC2410C),
+    Color(0xFFFFF1E8),
+  );
+  static const CategoryColor assets = CategoryColor(
+    Color(0xFF0F766E),
+    Color(0xFFE6F6F4),
+  );
+  static const CategoryColor health = CategoryColor(
+    Color(0xFFBE185D),
+    Color(0xFFFDEBF3),
+  );
+
+  /// Avatar colors for members (picked by position in the list).
+  static const List<CategoryColor> memberPalette = [
+    CategoryColor(primary, primarySoft),
+    government,
+    health,
+    assets,
+    education,
+  ];
 }
 
 /// Foreground (icon / text) + soft background pair for a category.

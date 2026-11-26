@@ -1,9 +1,10 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import 'models/otp_request_response.dart';
+import 'models/user_model.dart';
 import 'models/verify_otp_response.dart';
 
-/// Auth API calls. No token needed for these, so `auth: false`.
+/// Auth and current-user API calls.
 class AuthService {
   AuthService(this._api);
 
@@ -28,4 +29,16 @@ class AuthService {
     );
     return VerifyOtpResponse.fromJson(data as Map<String, dynamic>);
   }
+
+  /// GET /api/v1/users/me → {"user": {"id", "mobile", "createdAt"}}
+  Future<UserModel> getMe() async {
+    final data = await _api.get(ApiEndpoints.me);
+    return UserModel.fromJson(
+      (data as Map<String, dynamic>)['user'] as Map<String, dynamic>,
+    );
+  }
+
+  /// POST /api/v1/auth/logout {"refreshToken": "..."} → 204
+  Future<void> logout(String refreshToken) =>
+      _api.post(ApiEndpoints.logout, body: {'refreshToken': refreshToken});
 }

@@ -53,13 +53,20 @@ class AppInfoBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: AppTextStyles.label
-                        .copyWith(fontSize: 14, color: textColor)),
+                Text(
+                  title,
+                  style: AppTextStyles.label.copyWith(
+                    fontSize: 14,
+                    color: textColor,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(message,
-                    style: AppTextStyles.small.copyWith(
-                        color: isError ? textColor : AppColors.textSecondary)),
+                Text(
+                  message,
+                  style: AppTextStyles.small.copyWith(
+                    color: isError ? textColor : AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
