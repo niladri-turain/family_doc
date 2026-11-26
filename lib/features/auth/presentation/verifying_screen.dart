@@ -1,75 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../data/auth_repository.dart';
+import 'providers/auth_provider.dart';
 import 'widgets/verify_step_row.dart';
 
-/// Opened with the mobile number as route argument.
-/// Calls send-OTP, takes the OTP from the response, calls verify-OTP.
-/// 200 → Family screen. Error → pops back to Login with the message.
+/// Opened with the 10-digit mobile number as route argument.
+/// Runs [AuthProvider.login]: request OTP → verify with that OTP → save token.
+/// Success → Dashboard. Failure → back to Login with the error message.
 class VerifyingScreen extends StatefulWidget {
-  const VerifyingScreen({super.key, AuthRepository? repository})
-      : _repository = repository;
-
-  final AuthRepository? _repository;
+  const VerifyingScreen({super.key});
 
   @override
   State<VerifyingScreen> createState() => _VerifyingScreenState();
 }
 
 class _VerifyingScreenState extends State<VerifyingScreen> {
-  late final AuthRepository _repo = widget._repository ?? AuthRepository();
-  final _watch = Stopwatch();
-  int _step = 0; // 0 = sending, 2 = OTP received + signing in
-  String? _otpAt;
-  bool _started = false;
+  late final String _mobile =
+      ModalRoute.of(context)!.settings.arguments as String;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_started) return;
-    _started = true;
-    final mobile = ModalRoute.of(context)!.settings.arguments as String;
-    _run(mobile);
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _login());
   }
 
-  String _elapsed() =>
-      '${(_watch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s';
-
-  Future<void> _run(String mobile) async {
-    _watch.start();
-    try {
-      final otp = await _repo.sendOtp(mobile);
-      if (!mounted) return;
-      setState(() {
-        _step = 2;
-        _otpAt = _elapsed();
-      });
-      await _repo.verifyOtp(mobile, otp);
-      if (!mounted) return;
+  Future<void> _login() async {
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.login(_mobile);
+    if (!mounted) return;
+    if (ok) {
       Navigator.pushNamedAndRemoveUntil(
-          context, AppRoutes.members, (route) => false);
-    } on AuthException catch (e) {
-      if (mounted) Navigator.pop(context, e.message);
+          context, AppRoutes.dashboard, (_) => false);
+    } else {
+      Navigator.pop(context, auth.error);
     }
   }
 
-  String get _formatted {
-    final m = ModalRoute.of(context)!.settings.arguments as String;
-    return m.length == 10 ? '+91 ${m.substring(0, 5)} ${m.substring(5)}' : m;
-  }
+  String get _formatted => _mobile.length == 10
+      ? '+91 ${_mobile.substring(0, 5)} ${_mobile.substring(5)}'
+      : _mobile;
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final otpDone = auth.step == AuthStep.verifyingOtp ||
+        auth.step == AuthStep.success;
+
     return PopScope(
       canPop: false,
       child: Scaffold(
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSizes.screenPadding),
             child: Column(
               children: [
                 const SizedBox(height: 90),
@@ -81,7 +68,8 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
                     children: [
                       Container(
                         decoration: const BoxDecoration(
-                            color: AppColors.primarySoft, shape: BoxShape.circle),
+                            color: AppColors.primarySoft,
+                            shape: BoxShape.circle),
                       ),
                       const SizedBox.expand(
                         child: CircularProgressIndicator(
@@ -111,7 +99,8 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
                     textAlign: TextAlign.center, style: AppTextStyles.body),
                 const SizedBox(height: 40),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.border),
                     borderRadius: BorderRadius.circular(20),
@@ -121,17 +110,19 @@ class _VerifyingScreenState extends State<VerifyingScreen> {
                       VerifyStepRow(
                         label: 'Login request sent',
                         status:
-                            _step == 0 ? StepStatus.running : StepStatus.done,
+                            otpDone ? StepStatus.done : StepStatus.running,
                       ),
                       VerifyStepRow(
                         label: 'OTP received from server',
-                        status: _step >= 2 ? StepStatus.done : StepStatus.pending,
-                        trailing: _otpAt,
+                        status:
+                            otpDone ? StepStatus.done : StepStatus.pending,
+                        trailing: otpDone ? auth.otpReceivedIn : null,
                       ),
                       VerifyStepRow(
                         label: 'Signing you in…',
-                        status:
-                            _step >= 2 ? StepStatus.running : StepStatus.pending,
+                        status: auth.step == AuthStep.success
+                            ? StepStatus.done
+                            : (otpDone ? StepStatus.running : StepStatus.pending),
                         showDivider: false,
                       ),
                     ],

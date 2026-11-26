@@ -1,0 +1,15 @@
+/// Base URL and every API path in one place.
+class ApiEndpoints {
+  ApiEndpoints._();
+
+  /// TODO: put your server address here (same as {{baseUrl}} in Postman).
+  /// iOS simulator → http://localhost:PORT, Android emulator → http://10.0.2.2:PORT,
+  /// real phone → your computer's LAN IP or the deployed URL.
+  static const String baseUrl = 'http://192.168.0.207:3000';
+
+  static const Duration timeout = Duration(seconds: 20);
+
+  // Auth
+  static const String requestOtp = '/api/v1/auth/otp/request';
+  static const String verifyOtp = '/api/v1/auth/otp/verify';
+}
