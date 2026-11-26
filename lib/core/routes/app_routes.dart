@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/verifying_screen.dart';
+import '../../features/documents/presentation/category_documents_screen.dart';
 import '../../features/family/presentation/add_member_screen.dart';
 import '../../features/home/presentation/main_shell.dart';
 import '../../features/profile/presentation/delete_members_screen.dart';
@@ -21,6 +22,8 @@ class AppRoutes {
   static const String editMember = '/family/edit'; // argument: FamilyMember
   static const String profile = '/profile';
   static const String deleteMembers = '/profile/delete-members';
+  static const String categoryDocuments =
+      '/documents'; // argument: CategoryDocumentsArgs
 
   static Map<String, WidgetBuilder> get routes => {
     welcome: (_) => const WelcomeScreen(),
@@ -32,5 +35,6 @@ class AppRoutes {
     editMember: (_) => const AddMemberScreen(),
     profile: (_) => const MainShell(initialTab: AppTab.profile),
     deleteMembers: (_) => const DeleteMembersScreen(),
+    categoryDocuments: (_) => const CategoryDocumentsScreen(),
   };
 }

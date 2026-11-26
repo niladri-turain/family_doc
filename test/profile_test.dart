@@ -103,6 +103,39 @@ class FakeServer {
       }
       return http.Response(jsonEncode({'categories': userCategories}), 200);
     }
+    if (path == '/api/v1/document-types') {
+      final categoryId = req.url.queryParameters['categoryId'];
+      return http.Response(
+        jsonEncode({
+          'documentTypes': categoryId != '1'
+              ? []
+              : [
+                  {
+                    'id': 11,
+                    'name': 'Graduation Marksheet',
+                    'categoryId': 1,
+                    'sortOrder': 2,
+                    'isActive': true,
+                  },
+                  {
+                    'id': 12,
+                    'name': 'Higher Secondary/12th Marksheet',
+                    'categoryId': 1,
+                    'sortOrder': 1,
+                    'isActive': true,
+                  },
+                  {
+                    'id': 13,
+                    'name': 'Old type',
+                    'categoryId': 1,
+                    'sortOrder': 3,
+                    'isActive': false,
+                  },
+                ],
+        }),
+        200,
+      );
+    }
     if (path == '/api/v1/auth/logout') {
       expect(jsonDecode(req.body)['refreshToken'], 'ref');
       return http.Response('', 204);
@@ -371,5 +404,52 @@ void main() {
     expect(server.calls, contains('DELETE /api/v1/user-categories/1'));
     expect(find.text('Papa docs'), findsNothing);
     expect(find.text('in 4 categories'), findsOneWidget);
+  });
+
+  testWidgets('category tap opens its documents with the type filter', (
+    tester,
+  ) async {
+    final server = await openProfile(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomNavigationBar),
+        matching: find.text('Dashboard'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Education'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.calls.where((c) => c == 'GET /api/v1/document-types').length,
+      1,
+    );
+    expect(find.text('Rahul Sharma · 0 documents'), findsOneWidget);
+    expect(find.text('No education documents yet'), findsOneWidget);
+    // Active types only, as chips in sortOrder
+    expect(find.text('Old type'), findsNothing);
+    final hs = tester.getTopLeft(find.text('Higher Secondary/12th Marksheet'));
+    final grad = tester.getTopLeft(find.text('Graduation Marksheet'));
+    expect(hs.dx < grad.dx || hs.dy < grad.dy, isTrue);
+
+    // Open the dropdown and pick a type
+    await tester.tap(find.text('All types (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('All types'), findsOneWidget);
+    await tester.tap(find.text('Graduation Marksheet').first);
+    await tester.pumpAndSettle();
+    expect(find.text('No Graduation Marksheet yet'), findsOneWidget);
+    expect(find.text('All types (2)'), findsNothing);
+
+    // Back to all types
+    await tester.tap(find.text('Graduation Marksheet').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All types'));
+    await tester.pumpAndSettle();
+    expect(find.text('No education documents yet'), findsOneWidget);
+
+    await tester.tap(find.text('Upload document'));
+    await tester.pump();
+    expect(find.text('Uploading documents is coming next.'), findsOneWidget);
   });
 }

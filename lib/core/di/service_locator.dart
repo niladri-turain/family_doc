@@ -5,6 +5,7 @@ import '../../features/auth/data/auth_service.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/categories/data/category_service.dart';
 import '../../features/categories/presentation/providers/category_provider.dart';
+import '../../features/documents/data/document_service.dart';
 import '../../features/family/data/family_service.dart';
 import '../../features/family/presentation/providers/family_provider.dart';
 import '../network/api_client.dart';
@@ -43,4 +44,7 @@ Future<void> setupLocator({
   // Categories
   sl.registerLazySingleton<CategoryService>(() => CategoryService(sl()));
   sl.registerFactory<CategoryProvider>(() => CategoryProvider(service: sl()));
+
+  // Documents
+  sl.registerLazySingleton<DocumentService>(() => DocumentService(sl()));
 }
