@@ -55,13 +55,18 @@ class WelcomeScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.lock_outline,
-                            size: 14, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.lock_outline,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 6),
                         Flexible(
-                          child: Text(AppStrings.savedPrivately,
-                              textAlign: TextAlign.center,
-                              style: AppTextStyles.caption),
+                          child: Text(
+                            AppStrings.savedPrivately,
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.caption,
+                          ),
                         ),
                       ],
                     ),

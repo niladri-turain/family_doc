@@ -58,13 +58,16 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(AppSizes.screenPadding),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - AppSizes.screenPadding * 2),
+                minHeight: constraints.maxHeight - AppSizes.screenPadding * 2,
+              ),
               child: IntrinsicHeight(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Align(
-                        alignment: Alignment.centerLeft, child: AppBackButton()),
+                      alignment: Alignment.centerLeft,
+                      child: AppBackButton(),
+                    ),
                     const SizedBox(height: AppSizes.xxl),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -75,16 +78,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.primarySoft,
                           borderRadius: BorderRadius.circular(18),
                         ),
-                        child: const Icon(Icons.smartphone_rounded,
-                            color: AppColors.primary, size: 26),
+                        child: const Icon(
+                          Icons.smartphone_rounded,
+                          color: AppColors.primary,
+                          size: 26,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Text('Login with your mobile number',
-                        style: AppTextStyles.heading),
+                    Text(
+                      'Login with your mobile number',
+                      style: AppTextStyles.heading,
+                    ),
                     const SizedBox(height: 10),
-                    Text("We'll verify your number automatically. No OTP to type.",
-                        style: AppTextStyles.body),
+                    Text(
+                      "We'll verify your number automatically. No OTP to type.",
+                      style: AppTextStyles.body,
+                    ),
                     const SizedBox(height: AppSizes.xxl),
                     PhoneInputField(
                       controller: _controller,
@@ -110,8 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: AppSizes.xl),
                     AppPrimaryButton(
                       label: _serverError != null ? 'Try again' : 'Continue',
-                      leadingIcon:
-                          _serverError != null ? Icons.refresh_rounded : null,
+                      leadingIcon: _serverError != null
+                          ? Icons.refresh_rounded
+                          : null,
                       trailingIcon: _serverError != null
                           ? null
                           : Icons.arrow_forward_rounded,

@@ -86,8 +86,11 @@ class WelcomeIllustration extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.check_rounded,
-                  color: AppColors.white, size: 24),
+              child: const Icon(
+                Icons.check_rounded,
+                color: AppColors.white,
+                size: 24,
+              ),
             ),
           ),
         ],

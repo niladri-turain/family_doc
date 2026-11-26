@@ -68,8 +68,10 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
           ),
           child: Row(
             children: [
-              Text('+91',
-                  style: AppTextStyles.input.copyWith(letterSpacing: 0)),
+              Text(
+                '+91',
+                style: AppTextStyles.input.copyWith(letterSpacing: 0),
+              ),
               const SizedBox(width: 12),
               Container(width: 1, height: 26, color: AppColors.border),
               const SizedBox(width: 12),
@@ -91,8 +93,9 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
                     border: InputBorder.none,
                     isCollapsed: true,
                     hintText: '98765 43210',
-                    hintStyle: AppTextStyles.input
-                        .copyWith(color: AppColors.textSecondary.withValues(alpha: 0.5)),
+                    hintStyle: AppTextStyles.input.copyWith(
+                      color: AppColors.textSecondary.withValues(alpha: 0.5),
+                    ),
                   ),
                   onChanged: widget.onChanged,
                   onSubmitted: widget.onSubmitted,
@@ -103,9 +106,14 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
                   width: 24,
                   height: 24,
                   decoration: const BoxDecoration(
-                      color: AppColors.success, shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded,
-                      size: 15, color: AppColors.white),
+                    color: AppColors.success,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 15,
+                    color: AppColors.white,
+                  ),
                 ),
             ],
           ),

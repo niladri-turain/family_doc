@@ -19,7 +19,9 @@ class AppBackButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
         child: const Icon(Icons.chevron_left_rounded, size: 26),
       ),
