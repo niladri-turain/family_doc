@@ -1,19 +1,27 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/cached_api.dart';
+import '../../../core/storage/api_cache.dart';
 import 'models/document_category.dart';
 
 /// Category API calls. The bearer token is added by [ApiClient].
+/// Both lists are saved on the phone and used when offline; the user's own
+/// categories stay in step after adding, renaming or deleting.
 class CategoryService {
-  CategoryService(this._api);
+  CategoryService(this._api, this._cache);
 
   final ApiClient _api;
+  final ApiCache _cache;
+
+  static const _globalKey = 'categories';
+  static const _userKey = 'user-categories';
 
   /// Global categories (sorted by id) followed by the user's own ones
   /// (oldest first). Both lists are fetched at the same time.
   Future<List<DocumentCategory>> getCategories() async {
     final results = await Future.wait([
-      _api.get(ApiEndpoints.categories),
-      _api.get(ApiEndpoints.userCategories),
+      getWithCache(_api, _cache, _globalKey, ApiEndpoints.categories),
+      getWithCache(_api, _cache, _userKey, ApiEndpoints.userCategories),
     ]);
     return [
       ..._parse(results[0], isCustom: false),
@@ -34,8 +42,10 @@ class CategoryService {
           'description': description,
       },
     );
+    final json = (data as Map<String, dynamic>)['category'];
+    await updateCachedList(_cache, _userKey, 'categories', (l) => [...l, json]);
     return DocumentCategory.fromJson(
-      (data as Map<String, dynamic>)['category'] as Map<String, dynamic>,
+      json as Map<String, dynamic>,
       isCustom: true,
     );
   }
@@ -56,15 +66,32 @@ class CategoryService {
             : description,
       },
     );
+    final json = (data as Map<String, dynamic>)['category'];
+    await updateCachedList(
+      _cache,
+      _userKey,
+      'categories',
+      (l) => [for (final c in l) (c is Map && c['id'] == id) ? json : c],
+    );
     return DocumentCategory.fromJson(
-      (data as Map<String, dynamic>)['category'] as Map<String, dynamic>,
+      json as Map<String, dynamic>,
       isCustom: true,
     );
   }
 
   /// DELETE /api/v1/user-categories/{id} → 204
-  Future<void> deleteCategory(int id) =>
-      _api.delete(ApiEndpoints.userCategory(id));
+  Future<void> deleteCategory(int id) async {
+    await _api.delete(ApiEndpoints.userCategory(id));
+    await updateCachedList(
+      _cache,
+      _userKey,
+      'categories',
+      (l) => [
+        for (final c in l)
+          if (!(c is Map && c['id'] == id)) c,
+      ],
+    );
+  }
 
   /// {"categories": [...]} → sorted by id.
   static List<DocumentCategory> _parse(dynamic data, {required bool isCustom}) {

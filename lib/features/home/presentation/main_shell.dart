@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/network/connection_status.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../documents/data/models/saved_document.dart';
@@ -116,7 +119,38 @@ class _MainShellState extends State<MainShell> {
             _opened.contains(tab) ? _screenFor(tab) : const SizedBox.shrink(),
         ],
       ),
-      bottomNavigationBar: AppBottomNav(current: _current, onTap: _select),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (context.watch<ConnectionStatus>().isOffline) const _OfflineBar(),
+          AppBottomNav(current: _current, onTap: _select),
+        ],
+      ),
     );
   }
+}
+
+/// "You're offline" above the tabs while the server can't be reached.
+class _OfflineBar extends StatelessWidget {
+  const _OfflineBar();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    color: AppColors.textPrimary,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      children: [
+        const Icon(Icons.cloud_off_rounded, size: 16, color: AppColors.white),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            "You're offline · showing saved data. Adding or changing "
+            'members and categories needs internet.',
+            style: AppTextStyles.caption.copyWith(color: AppColors.white),
+          ),
+        ),
+      ],
+    ),
+  );
 }

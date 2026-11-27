@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:family_doc/app.dart';
 import 'package:family_doc/core/di/service_locator.dart';
+import 'package:family_doc/core/storage/api_cache.dart';
 import 'package:family_doc/core/routes/app_routes.dart';
 import 'package:family_doc/core/storage/token_storage.dart';
 import 'package:family_doc/core/widgets/dashed_border_box.dart';
@@ -25,6 +26,7 @@ import 'helpers/fake_documents.dart';
 late MemoryDocumentStore savedDocs;
 late FakeFileActions fileActions;
 late FakeDocumentReader reader;
+late MemoryApiCache apiCache;
 late MemoryDocumentTypeStore savedTypes;
 late FakeReminderService reminders;
 
@@ -181,9 +183,11 @@ Future<FakeServer> openProfile(
   savedDocs = MemoryDocumentStore()..documents.addAll(savedBefore);
   fileActions = FakeFileActions();
   reader = FakeDocumentReader();
+  apiCache = MemoryApiCache();
   savedTypes = MemoryDocumentTypeStore()..types.addAll(typesBefore);
   reminders = FakeReminderService();
   await setupLocator(
+    apiCache: apiCache,
     httpClient: server.client,
     documentStore: savedDocs,
     documentTypeStore: savedTypes,

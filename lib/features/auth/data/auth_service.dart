@@ -1,14 +1,17 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/cached_api.dart';
+import '../../../core/storage/api_cache.dart';
 import 'models/otp_request_response.dart';
 import 'models/user_model.dart';
 import 'models/verify_otp_response.dart';
 
 /// Auth and current-user API calls.
 class AuthService {
-  AuthService(this._api);
+  AuthService(this._api, this._cache);
 
   final ApiClient _api;
+  final ApiCache _cache;
 
   /// Body matches Postman: {"mobile": "+919876543210"}
   Future<OtpRequestResponse> requestOtp(String mobile) async {
@@ -31,8 +34,9 @@ class AuthService {
   }
 
   /// GET /api/v1/users/me → {"user": {"id", "mobile", "createdAt"}}
+  /// (the saved one when offline).
   Future<UserModel> getMe() async {
-    final data = await _api.get(ApiEndpoints.me);
+    final data = await getWithCache(_api, _cache, 'me', ApiEndpoints.me);
     return UserModel.fromJson(
       (data as Map<String, dynamic>)['user'] as Map<String, dynamic>,
     );

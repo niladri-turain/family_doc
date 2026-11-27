@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/app_strings.dart';
 import 'core/di/service_locator.dart';
+import 'core/network/connection_status.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
@@ -20,6 +21,9 @@ class FamilyDocApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<ConnectionStatus>.value(
+          value: sl<ConnectionStatus>(),
+        ),
         ChangeNotifierProvider<AuthProvider>(create: (_) => sl<AuthProvider>()),
         ChangeNotifierProvider<FamilyProvider>(
           create: (_) => sl<FamilyProvider>(),

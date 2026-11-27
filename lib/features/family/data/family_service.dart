@@ -2,21 +2,28 @@ import 'dart:io';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/cached_api.dart';
+import '../../../core/storage/api_cache.dart';
 import 'models/family_member.dart';
 import 'models/relation.dart';
 
 /// Family member API calls. The bearer token is added by [ApiClient].
+/// The list is also saved on the phone: without internet the saved list
+/// is shown, and adding / editing / deleting keeps it up to date.
 class FamilyService {
-  FamilyService(this._api);
+  FamilyService(this._api, this._cache);
 
   final ApiClient _api;
+  final ApiCache _cache;
+
+  static const _key = 'family-members';
 
   /// GET /api/v1/family-members → {"total": 5, "members": [...]}
+  /// (the saved list when offline).
   Future<List<FamilyMember>> getMembers({String? search}) async {
-    final data = await _api.get(
-      ApiEndpoints.familyMembers,
-      query: (search == null || search.isEmpty) ? null : {'search': search},
-    );
+    final data = (search == null || search.isEmpty)
+        ? await getWithCache(_api, _cache, _key, ApiEndpoints.familyMembers)
+        : await _api.get(ApiEndpoints.familyMembers, query: {'search': search});
     final list = (data is Map ? data['members'] : data) as List? ?? const [];
     return list
         .map((e) => FamilyMember.fromJson(e as Map<String, dynamic>))
@@ -48,9 +55,9 @@ class FamilyService {
             fields: fields,
             files: {'photo': photo.path},
           );
-    return FamilyMember.fromJson(
-      (data as Map<String, dynamic>)['member'] as Map<String, dynamic>,
-    );
+    final json = (data as Map<String, dynamic>)['member'];
+    await updateCachedList(_cache, _key, 'members', (l) => [...l, json]);
+    return FamilyMember.fromJson(json as Map<String, dynamic>);
   }
 
   /// PATCH /api/v1/family-members/{id} → {"member": {...}}
@@ -92,14 +99,29 @@ class FamilyService {
             },
             files: {'photo': photo.path},
           );
-    return FamilyMember.fromJson(
-      (data as Map<String, dynamic>)['member'] as Map<String, dynamic>,
+    final json = (data as Map<String, dynamic>)['member'];
+    await updateCachedList(
+      _cache,
+      _key,
+      'members',
+      (l) => [for (final m in l) (m is Map && m['id'] == id) ? json : m],
     );
+    return FamilyMember.fromJson(json as Map<String, dynamic>);
   }
 
   /// DELETE /api/v1/family-members/{id} → 204
-  Future<void> deleteMember(int id) =>
-      _api.delete(ApiEndpoints.familyMember(id));
+  Future<void> deleteMember(int id) async {
+    await _api.delete(ApiEndpoints.familyMember(id));
+    await updateCachedList(
+      _cache,
+      _key,
+      'members',
+      (l) => [
+        for (final m in l)
+          if (!(m is Map && m['id'] == id)) m,
+      ],
+    );
+  }
 
   /// 2026-01-05 → "2026-01-05" (the API's date format).
   static String formatDate(DateTime d) =>

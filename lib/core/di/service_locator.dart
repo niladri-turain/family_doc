@@ -17,7 +17,10 @@ import '../../features/family/data/family_service.dart';
 import '../../features/family/presentation/providers/family_provider.dart';
 import '../../features/reminders/reminder_service.dart';
 import '../network/api_client.dart';
+import '../network/connection_status.dart';
+import '../storage/api_cache.dart';
 import '../services/image_service.dart';
+import '../services/photo_cache.dart';
 import '../storage/token_storage.dart';
 
 /// Global service locator. Get anything with `sl<ApiClient>()`.
@@ -28,6 +31,7 @@ final GetIt sl = GetIt.instance;
 Future<void> setupLocator({
   http.Client? httpClient,
   TokenStorage? tokenStorage,
+  ApiCache? apiCache,
   DocumentStore? documentStore,
   DocumentTypeStore? documentTypeStore,
   FileActions? fileActions,
@@ -40,27 +44,30 @@ Future<void> setupLocator({
   // Core
   sl.registerLazySingleton<TokenStorage>(() => tokenStorage ?? TokenStorage());
   sl.registerLazySingleton<http.Client>(() => httpClient ?? http.Client());
+  sl.registerLazySingleton<ConnectionStatus>(() => ConnectionStatus());
+  sl.registerLazySingleton<ApiCache>(() => apiCache ?? HiveApiCache());
   sl.registerLazySingleton<ApiClient>(
-    () => ApiClient(tokenStorage: sl(), client: sl()),
+    () => ApiClient(tokenStorage: sl(), client: sl(), status: sl()),
   );
   sl.registerLazySingleton<ImageService>(() => ImageService());
+  sl.registerLazySingleton<PhotoCache>(() => PhotoCache(sl()));
 
   // Auth
-  sl.registerLazySingleton<AuthService>(() => AuthService(sl()));
+  sl.registerLazySingleton<AuthService>(() => AuthService(sl(), sl()));
   sl.registerFactory<AuthProvider>(
-    () => AuthProvider(service: sl(), tokens: sl()),
+    () => AuthProvider(service: sl(), tokens: sl(), cache: sl()),
   );
 
   // Family
-  sl.registerLazySingleton<FamilyService>(() => FamilyService(sl()));
+  sl.registerLazySingleton<FamilyService>(() => FamilyService(sl(), sl()));
   sl.registerFactory<FamilyProvider>(() => FamilyProvider(service: sl()));
 
   // Categories
-  sl.registerLazySingleton<CategoryService>(() => CategoryService(sl()));
+  sl.registerLazySingleton<CategoryService>(() => CategoryService(sl(), sl()));
   sl.registerFactory<CategoryProvider>(() => CategoryProvider(service: sl()));
 
   // Documents
-  sl.registerLazySingleton<DocumentService>(() => DocumentService(sl()));
+  sl.registerLazySingleton<DocumentService>(() => DocumentService(sl(), sl()));
   sl.registerLazySingleton<DocumentStore>(
     () => documentStore ?? HiveDocumentStore(),
   );

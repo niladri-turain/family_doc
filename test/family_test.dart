@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:family_doc/app.dart';
 import 'package:family_doc/core/di/service_locator.dart';
+import 'package:family_doc/core/storage/api_cache.dart';
 import 'package:family_doc/core/routes/app_routes.dart';
 import 'package:family_doc/core/storage/token_storage.dart';
+import 'package:family_doc/core/widgets/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,13 +16,20 @@ import 'package:http/testing.dart';
 
 import 'helpers/fake_documents.dart';
 
+/// Saved server data; kept across a simulated app restart.
+late MemoryApiCache apiCache;
+
 /// In-memory server that follows /api/v1/family-members from the API docs.
 class FakeFamilyServer {
   final members = <Map<String, dynamic>>[];
   final requests = <http.Request>[];
   int _id = 0;
 
+  /// No internet: every call fails like a dropped connection.
+  bool offline = false;
+
   late final client = MockClient((req) async {
+    if (offline) throw const SocketException('No route to host');
     requests.add(req);
     expect(req.headers['Authorization'], 'Bearer tok');
     if (req.url.path.endsWith('/api/v1/users/me')) {
@@ -85,11 +95,17 @@ Finder buttonWith(String label) => find.ancestor(
 Future<FakeFamilyServer> start(
   WidgetTester tester, {
   List<Map<String, dynamic>> seed = const [],
+  FakeFamilyServer? server,
+  MemoryApiCache? cache,
 }) async {
   GoogleFonts.config.allowRuntimeFetching = false;
   FlutterSecureStorage.setMockInitialValues({});
-  final server = FakeFamilyServer()..members.addAll(seed);
+  // Like closing the app: nothing from a previous start is kept on screen.
+  await tester.pumpWidget(const SizedBox());
+  server ??= FakeFamilyServer()..members.addAll(seed);
+  apiCache = cache ?? MemoryApiCache();
   await setupLocator(
+    apiCache: apiCache,
     httpClient: server.client,
     documentStore: MemoryDocumentStore(),
     documentTypeStore: MemoryDocumentTypeStore(),
@@ -254,5 +270,77 @@ void main() {
     expect(sent2['relation'], 'other');
     expect(sent2['mobile'], '9123456780');
     expect(find.text('Other · 0 documents'), findsOneWidget);
+  });
+
+  testWidgets(
+    'offline after a first online run: saved members show, adding says it '
+    'needs internet',
+    (tester) async {
+      final server = await start(
+        tester,
+        seed: [
+          {
+            'id': 1,
+            'relation': 'self',
+            'fullName': 'Rahul Sharma',
+            'dateOfBirth': '1996-08-12',
+            'gender': 'male',
+            'photoUrl': null,
+          },
+        ],
+      );
+      // Online: add a member, so the saved list must grow too
+      await tester.tap(find.byTooltip('Add member'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Sunil Sharma');
+      await tester.tap(find.text('Father'));
+      await pickDateAndGender(tester);
+      await tester.tap(find.text('Save member'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining("You're offline"), findsNothing);
+
+      // App closed, opened again with no internet
+      server.offline = true;
+      await start(tester, server: server, cache: apiCache);
+      expect(find.text('Rahul Sharma'), findsOneWidget);
+      expect(find.text('Sunil Sharma'), findsOneWidget);
+      expect(find.text('2 members · 0 documents'), findsOneWidget);
+      expect(
+        find.textContaining("You're offline · showing saved data"),
+        findsOneWidget,
+      );
+
+      // Adding needs the server: a clear message, nothing added
+      await tester.tap(find.byTooltip('Add member'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Rina Sharma');
+      await tester.tap(find.text('Mother'));
+      await pickDateAndGender(tester);
+      await tester.tap(find.text('Save member'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          "You're offline. This needs internet. Please connect and try again.",
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byType(AppBackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Rina Sharma'), findsNothing);
+
+      // Internet back: pull to refresh hides the offline bar
+      server.offline = false;
+      await tester.fling(find.text('Rahul Sharma'), const Offset(0, 400), 1000);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('showing saved data'), findsNothing);
+    },
+  );
+
+  testWidgets('first start without internet and nothing saved: error', (
+    tester,
+  ) async {
+    final server = FakeFamilyServer()..offline = true;
+    await start(tester, server: server);
+    expect(find.text("Couldn't load your family"), findsOneWidget);
   });
 }

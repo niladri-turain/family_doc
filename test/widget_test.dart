@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:family_doc/app.dart';
 import 'package:family_doc/core/di/service_locator.dart';
+import 'package:family_doc/core/storage/api_cache.dart';
 import 'package:family_doc/core/storage/token_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -71,6 +72,7 @@ void main() {
 
   testWidgets('invalid number shows error', (tester) async {
     await setupLocator(
+      apiCache: MemoryApiCache(),
       httpClient: fakeBackend(),
       documentStore: MemoryDocumentStore(),
       documentTypeStore: MemoryDocumentTypeStore(),
@@ -87,6 +89,7 @@ void main() {
 
   testWidgets('both APIs succeed → token saved → My Family', (tester) async {
     await setupLocator(
+      apiCache: MemoryApiCache(),
       httpClient: fakeBackend(),
       documentStore: MemoryDocumentStore(),
       documentTypeStore: MemoryDocumentTypeStore(),
@@ -108,6 +111,7 @@ void main() {
     tester,
   ) async {
     await setupLocator(
+      apiCache: MemoryApiCache(),
       httpClient: fakeBackend(verifyFails: true),
       documentStore: MemoryDocumentStore(),
       documentTypeStore: MemoryDocumentTypeStore(),

@@ -8,6 +8,7 @@ import '../storage/token_storage.dart';
 import 'api_endpoints.dart';
 import 'api_logger.dart';
 import 'api_exception.dart';
+import 'connection_status.dart';
 
 /// One place for every HTTP call.
 ///
@@ -28,11 +29,14 @@ class ApiClient {
     required TokenStorage tokenStorage,
     http.Client? client,
     String baseUrl = ApiEndpoints.baseUrl,
+    ConnectionStatus? status,
   }) : _tokens = tokenStorage,
        _client = client ?? http.Client(),
-       _baseUrl = baseUrl;
+       _baseUrl = baseUrl,
+       _status = status;
 
   final TokenStorage _tokens;
+  final ConnectionStatus? _status;
   final http.Client _client;
   final String _baseUrl;
 
@@ -140,14 +144,17 @@ class ApiClient {
       );
     } on TimeoutException catch (e) {
       ApiLogger.error(method: method, url: uri, error: e);
+      _status?.update(offline: true);
       throw const ApiException('The server took too long. Please try again.');
     } catch (e) {
       // SocketException / ClientException: no internet or server down.
       ApiLogger.error(method: method, url: uri, error: e);
+      _status?.update(offline: true);
       throw const ApiException(
-        "Couldn't reach the server. Check your internet and try again.",
+        "You're offline. This needs internet. Please connect and try again.",
       );
     }
+    _status?.update(offline: false);
 
     ApiLogger.response(
       method: method,

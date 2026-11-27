@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/storage/api_cache.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../data/auth_service.dart';
 import '../../data/models/user_model.dart';
@@ -12,12 +13,18 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider({
     required AuthService service,
     required TokenStorage tokens,
+    ApiCache? cache,
     this.stepDelay = const Duration(milliseconds: 900),
   }) : _service = service,
-       _tokens = tokens;
+       _tokens = tokens,
+       _cache = cache;
 
   final AuthService _service;
   final TokenStorage _tokens;
+
+  /// Server data saved for offline use; emptied on login and logout so
+  /// one account never sees another's members.
+  final ApiCache? _cache;
 
   /// Short pause between steps so the user can see each tick on the
   /// verifying screen (the APIs themselves answer in a few ms).
@@ -67,6 +74,7 @@ class AuthProvider extends ChangeNotifier {
       if (verify.accessToken.isEmpty) {
         throw const ApiException('Login token missing in server response.');
       }
+      await _cache?.clear();
       await _tokens.saveTokens(
         accessToken: verify.accessToken,
         refreshToken: verify.refreshToken,
@@ -115,6 +123,7 @@ class AuthProvider extends ChangeNotifier {
       }
     }
     await _tokens.clear();
+    await _cache?.clear();
     _user = null;
     _setStep(AuthStep.idle);
   }
