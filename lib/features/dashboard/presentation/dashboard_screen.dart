@@ -13,6 +13,7 @@ import '../../categories/data/models/document_category.dart';
 import '../../categories/presentation/providers/category_provider.dart';
 import '../../categories/presentation/widgets/add_category_sheet.dart';
 import '../../documents/presentation/category_documents_screen.dart';
+import '../../documents/presentation/providers/document_provider.dart';
 import '../../family/data/models/family_member.dart';
 import '../../family/presentation/providers/family_provider.dart';
 import 'widgets/add_category_button.dart';
@@ -22,7 +23,8 @@ import 'widgets/member_switcher.dart';
 import 'widgets/total_documents_card.dart';
 
 /// Member switcher, total documents and the category grid
-/// (categories from GET /api/v1/categories; counts are 0 until uploads exist).
+/// (categories from GET /api/v1/categories; counts are the selected
+/// member's documents saved on this phone).
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -118,8 +120,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
     if (!ok || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    final documents = context.read<DocumentProvider>();
     try {
       await context.read<CategoryProvider>().deleteCategory(category);
+      await documents.removeForCategory(category);
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
@@ -130,8 +134,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final family = context.watch<FamilyProvider>();
     final categoryState = context.watch<CategoryProvider>();
     final member = _selected(family);
+    final documents = context.watch<DocumentProvider>();
     final categories = categoryState.categories;
-    final total = categoryState.totalDocuments;
+    final total = documents.totalFor(member?.id);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -158,7 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 total: total,
                 categoryCount: categories.length,
                 filledCategories: categories
-                    .where((c) => c.documentCount > 0)
+                    .where((c) => documents.countFor(member?.id, c) > 0)
                     .length,
               ),
               const SizedBox(height: 24),
@@ -248,6 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       for (final c in state.categories)
         CategoryCard(
           category: c,
+          count: context.read<DocumentProvider>().countFor(member?.id, c),
           onTap: () => _openCategory(c, member),
           onMore: c.isCustom ? () => _categoryActions(c) : null,
         ),

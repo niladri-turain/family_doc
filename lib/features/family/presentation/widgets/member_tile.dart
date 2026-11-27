@@ -12,7 +12,11 @@ class MemberTile extends StatelessWidget {
     required this.member,
     required this.color,
     this.onTap,
+    this.documentCount,
   });
+
+  /// Saved documents on this phone; falls back to the server's count.
+  final int? documentCount;
 
   final FamilyMember member;
   final CategoryColor color;
@@ -20,7 +24,7 @@ class MemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final docs = member.documentCount;
+    final docs = documentCount ?? member.documentCount;
     return Material(
       color: AppColors.white,
       shape: RoundedRectangleBorder(

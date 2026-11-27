@@ -17,7 +17,11 @@ class CategoryCard extends StatelessWidget {
     required this.category,
     this.onTap,
     this.onMore,
+    this.count,
   });
+
+  /// Documents in this category for the selected member.
+  final int? count;
 
   final DocumentCategory category;
   final VoidCallback? onTap;
@@ -26,7 +30,7 @@ class CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = CategoryStyle.of(category.name);
-    final count = category.documentCount;
+    final count = this.count ?? category.documentCount;
     final custom = category.isCustom && onMore != null;
     final card = Material(
       color: AppColors.white,

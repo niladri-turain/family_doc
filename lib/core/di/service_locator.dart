@@ -6,6 +6,9 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/categories/data/category_service.dart';
 import '../../features/categories/presentation/providers/category_provider.dart';
 import '../../features/documents/data/document_service.dart';
+import '../../features/documents/data/document_store.dart';
+import '../../features/documents/data/file_actions.dart';
+import '../../features/documents/presentation/providers/document_provider.dart';
 import '../../features/family/data/family_service.dart';
 import '../../features/family/presentation/providers/family_provider.dart';
 import '../network/api_client.dart';
@@ -20,6 +23,8 @@ final GetIt sl = GetIt.instance;
 Future<void> setupLocator({
   http.Client? httpClient,
   TokenStorage? tokenStorage,
+  DocumentStore? documentStore,
+  FileActions? fileActions,
 }) async {
   await sl.reset();
 
@@ -47,4 +52,9 @@ Future<void> setupLocator({
 
   // Documents
   sl.registerLazySingleton<DocumentService>(() => DocumentService(sl()));
+  sl.registerLazySingleton<DocumentStore>(
+    () => documentStore ?? HiveDocumentStore(),
+  );
+  sl.registerLazySingleton<FileActions>(() => fileActions ?? FileActions());
+  sl.registerFactory<DocumentProvider>(() => DocumentProvider(store: sl()));
 }

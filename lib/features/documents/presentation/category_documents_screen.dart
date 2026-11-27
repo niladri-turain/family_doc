@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
@@ -6,6 +7,7 @@ import '../../../core/di/service_locator.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_back_button.dart';
+import '../../../core/widgets/app_confirm_dialog.dart';
 import '../../../core/widgets/app_primary_button.dart';
 import '../../../core/widgets/category_icon_box.dart';
 import '../../../core/widgets/skeleton_line.dart';
@@ -13,9 +15,16 @@ import '../../categories/data/models/document_category.dart';
 import '../../categories/presentation/category_style.dart';
 import '../../family/data/models/family_member.dart';
 import '../data/document_service.dart';
+import '../data/file_actions.dart';
 import '../data/models/document_type.dart';
+import '../data/models/saved_document.dart';
+import 'providers/document_provider.dart';
 import 'widgets/document_type_dropdown.dart';
+import 'widgets/document_actions_sheet.dart';
+import 'widgets/document_tile.dart';
 import 'widgets/documents_empty_state.dart';
+import 'widgets/rename_document_sheet.dart';
+import 'widgets/upload_document_sheet.dart';
 
 /// Route argument for [CategoryDocumentsScreen].
 class CategoryDocumentsArgs {
@@ -25,9 +34,9 @@ class CategoryDocumentsArgs {
   final FamilyMember? member;
 }
 
-/// One category's documents for a member, with a document type filter
-/// (types from GET /api/v1/document-types?categoryId={id}).
-/// Documents themselves aren't loaded yet, so the list is empty for now.
+/// One category's documents for a member (saved on this phone), with a
+/// document type filter (types from GET /api/v1/document-types?categoryId=).
+/// Tap a document to open it, share it from its button, ⋮ to rename or delete.
 class CategoryDocumentsScreen extends StatefulWidget {
   const CategoryDocumentsScreen({super.key});
 
@@ -73,12 +82,70 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
     }
   }
 
-  void _upload() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Uploading documents is coming next.')),
-      );
+  Future<void> _upload() async {
+    final args = _args!;
+    final member = args.member;
+    if (member == null) {
+      _snack('Add yourself or a family member first.');
+      return;
+    }
+    await showUploadDocumentSheet(
+      context,
+      category: args.category,
+      member: member,
+      types: _types,
+      initialType: _selected,
+    );
+  }
+
+  void _snack(String message) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _open(SavedDocument document) async {
+    final path = await context.read<DocumentProvider>().pathOf(document);
+    final error = await sl<FileActions>().open(path);
+    if (error != null && mounted) _snack(error);
+  }
+
+  Future<void> _share(SavedDocument document, Rect? origin) async {
+    final path = await context.read<DocumentProvider>().pathOf(document);
+    try {
+      await sl<FileActions>().share(path, name: document.name, origin: origin);
+    } catch (_) {
+      if (mounted) _snack('Could not share this file.');
+    }
+  }
+
+  Future<void> _more(SavedDocument document) async {
+    final action = await showDocumentActionsSheet(context, document);
+    if (!mounted || action == null) return;
+    switch (action) {
+      case DocumentAction.open:
+        await _open(document);
+      case DocumentAction.rename:
+        await showRenameDocumentSheet(context, document);
+      case DocumentAction.share:
+        await _share(document, null);
+      case DocumentAction.delete:
+        await _delete(document);
+    }
+  }
+
+  Future<void> _delete(SavedDocument document) async {
+    final ok = await showAppConfirmDialog(
+      context,
+      title: 'Delete ${document.name}?',
+      message:
+          "The file will be removed from this phone. This can't be undone.",
+      confirmLabel: 'Delete',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await context.read<DocumentProvider>().remove(document);
+    } catch (_) {
+      if (mounted) _snack('Could not delete this file.');
+    }
   }
 
   @override
@@ -89,7 +156,15 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
     }
     final category = args.category;
     final style = CategoryStyle.of(category.name);
-    final count = category.documentCount;
+    final all = context.watch<DocumentProvider>().documentsFor(
+      args.member?.id,
+      category,
+    );
+    final selected = _selected;
+    final documents = selected == null
+        ? all
+        : all.where((d) => d.typeId == selected.id).toList();
+    final count = all.length;
     final subtitle = [
       if (args.member != null) args.member!.fullName,
       '$count ${count == 1 ? 'document' : 'documents'}',
@@ -139,7 +214,7 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
                       CategoryIconBox(icon: style.icon, color: style.color),
                     ],
                   ),
-                  ..._typeFilter(style),
+                  ..._typeFilter(style, count),
                 ],
               ),
             ),
@@ -150,13 +225,25 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
                 onRefresh: _loadTypes,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     AppSizes.screenPadding,
-                    40,
+                    documents.isEmpty ? 40 : AppSizes.lg,
                     AppSizes.screenPadding,
                     AppSizes.xl,
                   ),
-                  children: [_empty(category)],
+                  children: documents.isEmpty
+                      ? [_empty(category)]
+                      : [
+                          for (final d in documents) ...[
+                            DocumentTile(
+                              document: d,
+                              onOpen: () => _open(d),
+                              onShare: (origin) => _share(d, origin),
+                              onMore: () => _more(d),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
                 ),
               ),
             ),
@@ -181,7 +268,7 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
 
   /// Label + dropdown; skeleton while loading, error with Retry on failure,
   /// nothing for categories without types.
-  List<Widget> _typeFilter(CategoryStyle style) {
+  List<Widget> _typeFilter(CategoryStyle style, int documentCount) {
     final Widget box;
     if (_loading && _types.isEmpty) {
       box = Container(
@@ -222,6 +309,7 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
         types: _types,
         selected: _selected,
         style: style,
+        allCount: documentCount,
         onChanged: (t) => setState(() => _selected = t),
       );
     }

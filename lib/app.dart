@@ -7,6 +7,7 @@ import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/categories/presentation/providers/category_provider.dart';
+import 'features/documents/presentation/providers/document_provider.dart';
 import 'features/family/presentation/providers/family_provider.dart';
 
 class FamilyDocApp extends StatelessWidget {
@@ -25,6 +26,9 @@ class FamilyDocApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<CategoryProvider>(
           create: (_) => sl<CategoryProvider>(),
+        ),
+        ChangeNotifierProvider<DocumentProvider>(
+          create: (_) => sl<DocumentProvider>()..load(),
         ),
       ],
       child: MaterialApp(

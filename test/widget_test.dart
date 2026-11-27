@@ -10,6 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'helpers/fake_documents.dart';
+
 /// Fake backend matching the Postman responses.
 MockClient fakeBackend({bool verifyFails = false}) => MockClient((req) async {
   if (req.url.path.endsWith('/otp/request')) {
@@ -68,7 +70,11 @@ void main() {
   });
 
   testWidgets('invalid number shows error', (tester) async {
-    await setupLocator(httpClient: fakeBackend());
+    await setupLocator(
+      httpClient: fakeBackend(),
+      documentStore: MemoryDocumentStore(),
+      fileActions: FakeFileActions(),
+    );
     await openLogin(tester);
     await tester.enterText(find.byType(TextField), '12345');
     await tester.tap(find.text('Continue'));
@@ -77,7 +83,11 @@ void main() {
   });
 
   testWidgets('both APIs succeed → token saved → My Family', (tester) async {
-    await setupLocator(httpClient: fakeBackend());
+    await setupLocator(
+      httpClient: fakeBackend(),
+      documentStore: MemoryDocumentStore(),
+      fileActions: FakeFileActions(),
+    );
     await openLogin(tester);
     await tester.enterText(find.byType(TextField), '9876543210');
     await tester.tap(find.text('Continue'));
@@ -91,7 +101,11 @@ void main() {
   testWidgets('verify fails → back to login with server message', (
     tester,
   ) async {
-    await setupLocator(httpClient: fakeBackend(verifyFails: true));
+    await setupLocator(
+      httpClient: fakeBackend(verifyFails: true),
+      documentStore: MemoryDocumentStore(),
+      fileActions: FakeFileActions(),
+    );
     await openLogin(tester);
     await tester.enterText(find.byType(TextField), '9876543210');
     await tester.tap(find.text('Continue'));

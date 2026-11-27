@@ -32,9 +32,9 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of a family member.</string>
+	<string>Take a photo of a family member or of a document to save.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose a photo of a family member.</string>
+	<string>Choose a photo of a family member or of a document to save.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

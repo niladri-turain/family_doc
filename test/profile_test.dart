@@ -1,3 +1,6 @@
+import 'package:family_doc/core/widgets/app_back_button.dart';
+import 'package:family_doc/features/documents/data/file_actions.dart';
+import 'package:cross_file/cross_file.dart';
 import 'dart:convert';
 
 import 'package:family_doc/app.dart';
@@ -13,7 +16,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'helpers/fake_documents.dart';
+
 /// Fake server for /users/me, /family-members and /auth/logout.
+late MemoryDocumentStore savedDocs;
+late FakeFileActions fileActions;
+
 class FakeServer {
   final members = <Map<String, dynamic>>[
     {
@@ -162,7 +170,13 @@ Future<FakeServer> openProfile(
         },
       );
   server ??= FakeServer();
-  await setupLocator(httpClient: server.client);
+  savedDocs = MemoryDocumentStore();
+  fileActions = FakeFileActions();
+  await setupLocator(
+    httpClient: server.client,
+    documentStore: savedDocs,
+    fileActions: fileActions,
+  );
   await sl<TokenStorage>().saveTokens(accessToken: 'tok', refreshToken: 'ref');
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -406,10 +420,7 @@ void main() {
     expect(find.text('in 4 categories'), findsOneWidget);
   });
 
-  testWidgets('category tap opens its documents with the type filter', (
-    tester,
-  ) async {
-    final server = await openProfile(tester);
+  Future<void> openEducation(WidgetTester tester) async {
     await tester.tap(
       find.descendant(
         of: find.byType(BottomNavigationBar),
@@ -419,6 +430,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Education'));
     await tester.pumpAndSettle();
+  }
+
+  Finder inSheet(String text) =>
+      find.descendant(of: find.byType(BottomSheet), matching: find.text(text));
+
+  testWidgets('category tap opens its documents with the type filter', (
+    tester,
+  ) async {
+    final server = await openProfile(tester);
+    await openEducation(tester);
 
     expect(
       server.calls.where((c) => c == 'GET /api/v1/document-types').length,
@@ -433,23 +454,144 @@ void main() {
     expect(hs.dx < grad.dx || hs.dy < grad.dy, isTrue);
 
     // Open the dropdown and pick a type
-    await tester.tap(find.text('All types (2)'));
+    await tester.tap(find.text('All types'));
     await tester.pumpAndSettle();
-    expect(find.text('All types'), findsOneWidget);
+    expect(find.text('All types'), findsNWidgets(2));
     await tester.tap(find.text('Graduation Marksheet').first);
     await tester.pumpAndSettle();
     expect(find.text('No Graduation Marksheet yet'), findsOneWidget);
-    expect(find.text('All types (2)'), findsNothing);
 
     // Back to all types
     await tester.tap(find.text('Graduation Marksheet').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('All types'));
+    await tester.tap(find.text('All types').last);
     await tester.pumpAndSettle();
     expect(find.text('No education documents yet'), findsOneWidget);
+  });
+
+  testWidgets('upload a file: listed for that member, opens, shares, deletes', (
+    tester,
+  ) async {
+    await openProfile(tester);
+    await openEducation(tester);
 
     await tester.tap(find.text('Upload document'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upload to Education'), findsOneWidget);
+    expect(find.text('For Rahul Sharma'), findsOneWidget);
+
+    // Nothing filled in → all three errors
+    await tester.tap(find.text('Save to Education'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a document type'), findsOneWidget);
+    expect(find.text('Enter a document name'), findsOneWidget);
+    expect(
+      find.text('Add a file from Camera, Gallery or Files'),
+      findsOneWidget,
+    );
+
+    // Type fills the name
+    await tester.tap(inSheet('Choose a type'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('Graduation Marksheet'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      'Graduation Marksheet',
+    );
+
+    fileActions.nextFile = XFile.fromData(
+      Uint8List(1536),
+      name: 'bsc_marksheet.pdf',
+      path: '/picked/bsc_marksheet.pdf',
+      length: 1536,
+    );
+    await tester.tap(inSheet('Files / PDF'));
+    await tester.pumpAndSettle();
+    expect(fileActions.picked, [FileSource.files]);
+    // Saved with the typed name, not the picked file's name
+    expect(inSheet('Graduation Marksheet.pdf'), findsOneWidget);
+    expect(inSheet('2 KB · renamed from bsc_marksheet.pdf'), findsOneWidget);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(EditableText),
+      ),
+      'BSc: Final/Marks',
+    );
     await tester.pump();
-    expect(find.text('Uploading documents is coming next.'), findsOneWidget);
+    expect(inSheet('BSc_ Final_Marks.pdf'), findsOneWidget);
+
+    await tester.tap(inSheet('Save to Education'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(savedDocs.documents.single.memberId, 3);
+    expect(savedDocs.documents.single.typeId, 11);
+
+    // In the list
+    expect(find.text('Rahul Sharma · 1 document'), findsOneWidget);
+    expect(find.text('All types (1)'), findsOneWidget);
+    expect(find.text('2 KB · Today'), findsOneWidget);
+    expect(find.text('PDF'), findsOneWidget);
+
+    await tester.tap(find.text('2 KB · Today'));
+    await tester.pumpAndSettle();
+    expect(fileActions.opened, ['/docs/1/BSc_ Final_Marks.pdf']);
+    await tester.tap(find.byTooltip('Share BSc: Final/Marks'));
+    await tester.pumpAndSettle();
+    expect(fileActions.shared, ['/docs/1/BSc_ Final_Marks.pdf']);
+
+    // ⋮ → Rename: new name in the list and on the file
+    await tester.tap(find.byTooltip('More for BSc: Final/Marks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(EditableText),
+      ),
+      'B.Sc Final Marksheet',
+    );
+    await tester.pump();
+    expect(inSheet('File name: B.Sc Final Marksheet.pdf'), findsOneWidget);
+    await tester.tap(find.text('Save name'));
+    await tester.pumpAndSettle();
+    expect(find.text('B.Sc Final Marksheet'), findsOneWidget);
+    expect(savedDocs.documents.single.storedName, '1/B.Sc Final Marksheet.pdf');
+
+    // Dashboard counts it for Rahul only
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('1 document'), findsOneWidget);
+    await tester.tap(find.text('Rahul Sharma'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sunil Sharma'));
+    await tester.pumpAndSettle();
+    expect(find.text('No documents'), findsNWidgets(4));
+    await tester.tap(find.text('Sunil Sharma'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rahul Sharma'));
+    await tester.pumpAndSettle();
+
+    // Long press → Delete → confirm
+    await tester.tap(find.text('Education'));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('2 KB · Today'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(savedDocs.documents, isEmpty);
+    expect(find.text('No education documents yet'), findsOneWidget);
   });
 }

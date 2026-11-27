@@ -8,6 +8,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_primary_button.dart';
 import '../../../core/widgets/app_secondary_button.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
+import '../../documents/presentation/providers/document_provider.dart';
 import 'providers/family_provider.dart';
 import 'widgets/empty_family_view.dart';
 import 'widgets/member_tile.dart';
@@ -193,7 +194,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
   Widget _buildList(FamilyProvider family) {
     final members = family.filteredMembers;
     final count = family.members.length;
-    final docs = family.totalDocuments;
+    final saved = context.watch<DocumentProvider>();
+    final docs = family.members.fold(0, (sum, m) => sum + saved.totalFor(m.id));
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -299,6 +301,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           final index = family.members.indexOf(m);
                           return MemberTile(
                             member: m,
+                            documentCount: saved.totalFor(m.id),
                             color:
                                 AppColors.memberPalette[index %
                                     AppColors.memberPalette.length],

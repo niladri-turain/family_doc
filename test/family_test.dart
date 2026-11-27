@@ -11,6 +11,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'helpers/fake_documents.dart';
+
 /// In-memory server that follows /api/v1/family-members from the API docs.
 class FakeFamilyServer {
   final members = <Map<String, dynamic>>[];
@@ -79,7 +81,11 @@ Future<FakeFamilyServer> start(
   GoogleFonts.config.allowRuntimeFetching = false;
   FlutterSecureStorage.setMockInitialValues({});
   final server = FakeFamilyServer()..members.addAll(seed);
-  await setupLocator(httpClient: server.client);
+  await setupLocator(
+    httpClient: server.client,
+    documentStore: MemoryDocumentStore(),
+    fileActions: FakeFileActions(),
+  );
   await sl<TokenStorage>().saveTokens(accessToken: 'tok');
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;

@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_back_button.dart';
 import '../../../core/widgets/app_confirm_dialog.dart';
+import '../../documents/presentation/providers/document_provider.dart';
 import '../../family/data/models/family_member.dart';
 import '../../family/presentation/providers/family_provider.dart';
 import '../../family/presentation/widgets/member_avatar.dart';
@@ -42,8 +43,10 @@ class _DeleteMembersScreenState extends State<DeleteMembersScreen> {
     if (!ok || !mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
+    final documents = context.read<DocumentProvider>();
     try {
       await context.read<FamilyProvider>().deleteMember(member);
+      await documents.removeForMember(member.id);
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }

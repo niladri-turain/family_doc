@@ -6,7 +6,8 @@ import '../../../categories/presentation/category_style.dart';
 import '../../data/models/document_type.dart';
 
 /// "All types ⌄" box that opens in place into the list of document types.
-/// [selected] null means All types.
+/// [selected] null means All types. With [allLabel] null there is no
+/// "All" option and [hint] shows until a type is picked (upload sheet).
 class DocumentTypeDropdown extends StatefulWidget {
   const DocumentTypeDropdown({
     super.key,
@@ -14,7 +15,20 @@ class DocumentTypeDropdown extends StatefulWidget {
     required this.selected,
     required this.style,
     required this.onChanged,
+    this.allLabel = 'All types',
+    this.allCount = 0,
+    this.hint = 'Choose a type',
+    this.error = false,
   });
+
+  final String? allLabel;
+
+  /// Shown as "All types (5)" when above 0.
+  final int allCount;
+  final String hint;
+
+  /// Red border (nothing picked when saving).
+  final bool error;
 
   final List<DocumentType> types;
   final DocumentType? selected;
@@ -43,7 +57,11 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _open ? AppColors.primary : AppColors.border,
+          color: _open
+              ? AppColors.primary
+              : widget.error
+              ? AppColors.error
+              : AppColors.border,
           width: _open ? 1.5 : 1,
         ),
         boxShadow: _open
@@ -88,11 +106,14 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          selected?.name ??
-                              'All types (${widget.types.length})',
+                          selected?.name ?? _allText ?? widget.hint,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.cardTitle,
+                          style: AppTextStyles.cardTitle.copyWith(
+                            color: selected == null && widget.allLabel == null
+                                ? AppColors.disabledText
+                                : null,
+                          ),
                         ),
                       ),
                       AnimatedRotation(
@@ -111,7 +132,7 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
               ),
               if (_open) ...[
                 const Divider(height: 1, color: AppColors.border),
-                _option(null, 'All types'),
+                if (widget.allLabel != null) _option(null, widget.allLabel!),
                 for (final t in widget.types) _option(t, t.name),
               ],
             ],
@@ -119,6 +140,12 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
         ),
       ),
     );
+  }
+
+  String? get _allText {
+    final label = widget.allLabel;
+    if (label == null) return null;
+    return widget.allCount > 0 ? '$label (${widget.allCount})' : label;
   }
 
   Widget _option(DocumentType? type, String label) {
