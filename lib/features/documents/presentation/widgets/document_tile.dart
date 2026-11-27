@@ -4,7 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../data/models/saved_document.dart';
 import '../document_format.dart';
-import 'file_badge.dart';
+import 'document_thumbnail.dart';
 
 /// White row: file badge, name, type chip, "1.2 MB · Today" and a share
 /// button. Tap opens the file, ⋮ shows more actions, a long press starts
@@ -55,7 +55,7 @@ class DocumentTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Row(
             children: [
-              FileBadge(extension: document.extension),
+              DocumentThumbnail(document: document),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

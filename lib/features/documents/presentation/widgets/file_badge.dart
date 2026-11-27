@@ -10,14 +10,14 @@ class FileBadge extends StatelessWidget {
   final String extension;
   final double size;
 
-  static const _images = {'jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'};
+  static const images = {'jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'};
 
   @override
   Widget build(BuildContext context) {
     final ext = extension.toLowerCase();
     final color = ext == 'pdf'
         ? const CategoryColor(AppColors.error, AppColors.errorSoft)
-        : _images.contains(ext)
+        : images.contains(ext)
         ? AppColors.assets
         : const CategoryColor(AppColors.primary, AppColors.primarySoft);
     final label = ext.isEmpty
