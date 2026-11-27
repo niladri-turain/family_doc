@@ -22,6 +22,14 @@ class FakeFamilyServer {
   late final client = MockClient((req) async {
     requests.add(req);
     expect(req.headers['Authorization'], 'Bearer tok');
+    if (req.url.path.endsWith('/api/v1/users/me')) {
+      return http.Response(
+        jsonEncode({
+          'user': {'id': 1, 'mobile': '+917059238072'},
+        }),
+        200,
+      );
+    }
     final segments = req.url.pathSegments;
     if (req.method == 'PATCH' && segments.length == 4) {
       final id = int.parse(segments.last);
@@ -96,11 +104,12 @@ Future<FakeFamilyServer> start(
 }
 
 Future<void> pickDateAndGender(WidgetTester tester) async {
-  await tester.tap(find.text('DD / MM / YYYY'));
+  // The icons (not just the text) open the pickers: whole box is tappable
+  await tester.tap(find.byIcon(Icons.calendar_today_outlined));
   await tester.pumpAndSettle();
   await tester.tap(find.text('OK'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Select'));
+  await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Male').last);
   await tester.pumpAndSettle();
@@ -138,9 +147,20 @@ void main() {
     expect(find.text('Choose date of birth'), findsOneWidget);
     expect(find.text('Choose gender'), findsOneWidget);
 
+    // Mobile: the login number, filled in and not editable
+    expect(find.text('7059238072'), findsOneWidget);
+    expect(find.text('(optional)'), findsNothing);
+    expect(find.text('The number you logged in with'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).readOnly,
+      isTrue,
+    );
+    await tester.enterText(find.byType(TextField).last, '9876543210');
+    await tester.pump();
+    expect(find.text('7059238072'), findsOneWidget);
+
     await tester.enterText(find.byType(TextField).first, 'Rahul Sharma');
     await pickDateAndGender(tester);
-    await tester.enterText(find.byType(TextField).last, '9876543210');
     await tester.tap(find.text('Save member'));
     await tester.pumpAndSettle();
 
@@ -150,7 +170,7 @@ void main() {
     expect(sent['relation'], 'self');
     expect(sent['fullName'], 'Rahul Sharma');
     expect(sent['gender'], 'male');
-    expect(sent['mobile'], '9876543210');
+    expect(sent['mobile'], '7059238072');
     expect(sent['dateOfBirth'], matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')));
 
     expect(find.text('Self · 0 documents'), findsOneWidget);
@@ -203,7 +223,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Edit my details'), findsOneWidget);
     expect(find.text('12 / 08 / 1996'), findsOneWidget);
-    expect(find.text('9876543210'), findsOneWidget);
+    expect(find.text('7059238072'), findsOneWidget); // login number wins
     expect(find.text('Father'), findsNothing);
     await tester.enterText(find.byType(TextField).first, 'Rahul K Sharma');
     await tester.tap(find.text('Save changes'));
@@ -215,7 +235,7 @@ void main() {
     final sent = jsonDecode(patch.body) as Map<String, dynamic>;
     expect(sent['fullName'], 'Rahul K Sharma');
     expect(sent['relation'], 'self');
-    expect(sent['mobile'], '9876543210');
+    expect(sent['mobile'], '7059238072');
     expect(find.text('Rahul K Sharma'), findsOneWidget);
 
     // Family member: change relation, add a mobile

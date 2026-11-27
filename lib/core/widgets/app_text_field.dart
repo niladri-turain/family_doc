@@ -6,6 +6,7 @@ import '../theme/app_text_styles.dart';
 
 /// Label + rounded field with the indigo focus ring and an optional error.
 /// Set [readOnly] + [onTap] to use it as a picker (date, dropdown…).
+/// [locked] shows a grey, non-editable field with a lock icon.
 class AppTextField extends StatefulWidget {
   const AppTextField({
     super.key,
@@ -20,6 +21,7 @@ class AppTextField extends StatefulWidget {
     this.prefixText,
     this.suffixIcon,
     this.readOnly = false,
+    this.locked = false,
     this.onTap,
     this.onChanged,
   });
@@ -37,6 +39,7 @@ class AppTextField extends StatefulWidget {
   final String? prefixText;
   final IconData? suffixIcon;
   final bool readOnly;
+  final bool locked;
   final VoidCallback? onTap;
   final ValueChanged<String>? onChanged;
 
@@ -62,7 +65,11 @@ class _AppTextFieldState extends State<AppTextField> {
   @override
   Widget build(BuildContext context) {
     final hasError = widget.errorText != null;
-    final focused = _focus.hasFocus && !widget.readOnly;
+    final readOnly = widget.readOnly || widget.locked;
+    final focused = _focus.hasFocus && !readOnly;
+    // Picker (date, dropdown…): the whole box is the tap target, not only
+    // the text — padding and the icon open it too.
+    final picker = readOnly && widget.onTap != null;
     final highlight = focused || hasError;
     final borderColor = hasError
         ? AppColors.error
@@ -87,67 +94,84 @@ class _AppTextFieldState extends State<AppTextField> {
           ),
         ),
         const SizedBox(height: 8),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor, width: highlight ? 2 : 1.5),
-            boxShadow: highlight
-                ? [
-                    BoxShadow(
-                      color: hasError
-                          ? AppColors.errorSoft
-                          : AppColors.primarySoft,
-                      spreadRadius: 4,
-                    ),
-                  ]
-                : null,
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            children: [
-              if (widget.prefixText != null) ...[
-                Text(
-                  widget.prefixText!,
-                  style: AppTextStyles.fieldValue.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: _focus,
-                  readOnly: widget.readOnly,
-                  onTap: widget.onTap,
-                  onChanged: widget.onChanged,
-                  keyboardType: widget.keyboardType,
-                  inputFormatters: widget.inputFormatters,
-                  textCapitalization: widget.textCapitalization,
-                  style: AppTextStyles.fieldValue,
-                  cursorColor: AppColors.primary,
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                    hintText: widget.hintText,
-                    hintStyle: AppTextStyles.fieldValue.copyWith(
-                      fontWeight: FontWeight.w400,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: picker ? widget.onTap : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: widget.locked ? AppColors.surface : AppColors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: borderColor,
+                width: highlight ? 2 : 1.5,
+              ),
+              boxShadow: highlight
+                  ? [
+                      BoxShadow(
+                        color: hasError
+                            ? AppColors.errorSoft
+                            : AppColors.primarySoft,
+                        spreadRadius: 4,
+                      ),
+                    ]
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              children: [
+                if (widget.prefixText != null) ...[
+                  Text(
+                    widget.prefixText!,
+                    style: AppTextStyles.fieldValue.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: IgnorePointer(
+                    ignoring: picker,
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: _focus,
+                      readOnly: readOnly,
+                      enableInteractiveSelection: !widget.locked,
+                      onTap: picker ? null : widget.onTap,
+                      onChanged: widget.onChanged,
+                      keyboardType: widget.keyboardType,
+                      inputFormatters: widget.inputFormatters,
+                      textCapitalization: widget.textCapitalization,
+                      style: widget.locked
+                          ? AppTextStyles.fieldValue.copyWith(
+                              color: AppColors.textSecondary,
+                            )
+                          : AppTextStyles.fieldValue,
+                      cursorColor: AppColors.primary,
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        border: InputBorder.none,
+                        hintText: widget.hintText,
+                        hintStyle: AppTextStyles.fieldValue.copyWith(
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              if (widget.suffixIcon != null)
-                Icon(
-                  widget.suffixIcon,
-                  size: 20,
-                  color: AppColors.textSecondary,
-                ),
-            ],
+                if (widget.suffixIcon != null || widget.locked)
+                  Icon(
+                    widget.locked
+                        ? Icons.lock_outline_rounded
+                        : widget.suffixIcon,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
+              ],
+            ),
           ),
         ),
         if (hasError) ...[

@@ -13,6 +13,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_back_button.dart';
 import '../../../core/widgets/app_primary_button.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../auth/presentation/providers/auth_provider.dart';
 import '../data/models/family_member.dart';
 import '../data/models/relation.dart';
 import 'providers/family_provider.dart';
@@ -57,6 +58,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   /// Editing: the user removed the saved photo.
   bool _removePhoto = false;
   bool _prefilled = false;
+  bool _askedLoginMobile = false;
   bool _preparingPhoto = false;
 
   String? _nameError;
@@ -78,11 +80,33 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       if (m.dateOfBirth != null) _dobText.text = _formatDob(m.dateOfBirth!);
       _gender = m.gender;
       _genderText.text = m.gender?.label ?? '';
-      final digits = (m.mobile ?? '').replaceAll(RegExp(r'\D'), '');
-      _mobile.text = digits.length > 10
-          ? digits.substring(digits.length - 10)
-          : digits;
+      _mobile.text = _lastTen(m.mobile);
     }
+    if (_isSelf && !_askedLoginMobile) {
+      _askedLoginMobile = true;
+      // After this frame: loading the profile notifies listeners.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fillLoginMobile());
+    }
+  }
+
+  static String _lastTen(String? mobile) {
+    final digits = (mobile ?? '').replaceAll(RegExp(r'\D'), '');
+    return digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+  }
+
+  /// Self's number is the one they logged in with: taken from the login
+  /// (or GET /users/me after a restart) and not editable.
+  Future<void> _fillLoginMobile() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      try {
+        await auth.loadProfile();
+      } catch (_) {
+        // Offline / expired: keep the saved number (editing) or leave empty.
+      }
+    }
+    final mobile = _lastTen(auth.user?.mobile);
+    if (mounted && mobile.isNotEmpty) setState(() => _mobile.text = mobile);
   }
 
   /// Saved photo still shown (editing, no new photo picked, not removed).
@@ -205,7 +229,9 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       _dobError = _dateOfBirth == null ? 'Choose date of birth' : null;
       _genderError = _gender == null ? 'Choose gender' : null;
       _mobileError =
-          mobile.isNotEmpty && !RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)
+          !_isSelf &&
+              mobile.isNotEmpty &&
+              !RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)
           ? 'Enter a valid 10-digit mobile number'
           : null;
     });
@@ -366,10 +392,11 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                     const SizedBox(height: 16),
                     AppTextField(
                       label: 'Mobile number',
-                      optionalHint: '(optional)',
+                      optionalHint: _isSelf ? null : '(optional)',
                       controller: _mobile,
                       prefixText: '+91',
-                      hintText: 'Enter number',
+                      locked: _isSelf,
+                      hintText: _isSelf ? 'Your login number' : 'Enter number',
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -378,6 +405,13 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                       errorText: _mobileError,
                       onChanged: (_) => setState(() => _mobileError = null),
                     ),
+                    if (_isSelf) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'The number you logged in with',
+                        style: AppTextStyles.caption,
+                      ),
+                    ],
                   ],
                 ),
               ),
