@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../data/models/saved_document.dart';
+import '../document_format.dart';
 import 'file_badge.dart';
 
-enum DocumentAction { open, rename, share, delete }
+enum DocumentAction { open, rename, expiry, removeExpiry, share, delete }
 
-/// Open / Rename / Share / Delete for one saved document
+/// Open / Rename / Expiry date / Share / Delete for one saved document
 /// (⋮ on the row or a long press).
 Future<DocumentAction?> showDocumentActionsSheet(
   BuildContext context,
@@ -70,6 +71,21 @@ Future<DocumentAction?> showDocumentActionsSheet(
               Icons.drive_file_rename_outline_rounded,
               'Rename',
             ),
+            item(
+              context,
+              DocumentAction.expiry,
+              Icons.event_outlined,
+              document.expiryDate == null
+                  ? 'Add expiry date'
+                  : 'Change expiry date (${formatDate(document.expiryDate!)})',
+            ),
+            if (document.expiryDate != null)
+              item(
+                context,
+                DocumentAction.removeExpiry,
+                Icons.event_busy_outlined,
+                'Remove expiry date',
+              ),
             item(context, DocumentAction.share, Icons.share_outlined, 'Share'),
             item(
               context,

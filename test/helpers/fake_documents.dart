@@ -4,6 +4,9 @@ import 'package:cross_file/cross_file.dart';
 import 'package:family_doc/features/documents/data/document_store.dart';
 import 'package:family_doc/features/documents/data/file_actions.dart';
 import 'package:family_doc/features/documents/data/models/saved_document.dart';
+import 'package:family_doc/features/documents/data/reading/document_reader.dart';
+import 'package:family_doc/features/reminders/reminder_planner.dart';
+import 'package:family_doc/features/reminders/reminder_service.dart';
 
 /// Keeps documents in memory instead of Hive + the documents folder.
 class MemoryDocumentStore implements DocumentStore {
@@ -22,6 +25,8 @@ class MemoryDocumentStore implements DocumentStore {
     required bool customCategory,
     int? typeId,
     String? typeName,
+    DateTime? expiryDate,
+    String? text,
   }) async {
     final id = '${++_next}';
     final document = SavedDocument(
@@ -36,8 +41,16 @@ class MemoryDocumentStore implements DocumentStore {
       storedName: '$id/${SavedDocument.fileNameFor(name, _ext(file.name))}',
       size: await file.length(),
       createdAt: DateTime.now(),
+      expiryDate: expiryDate,
+      text: text,
     );
     documents.add(document);
+    return document;
+  }
+
+  @override
+  Future<SavedDocument> update(SavedDocument document) async {
+    documents[documents.indexWhere((d) => d.id == document.id)] = document;
     return document;
   }
 
@@ -90,4 +103,34 @@ class FakeFileActions implements FileActions {
   @override
   Future<void> shareAll(List<String> paths, {Rect? origin}) async =>
       shared.addAll(paths);
+}
+
+/// Returns [next] as what was read from any picked file.
+class FakeDocumentReader implements DocumentReader {
+  DocumentScan? next;
+  final read_ = <String>[];
+
+  @override
+  Future<DocumentScan?> read(XFile file) async {
+    read_.add(file.name);
+    return next;
+  }
+}
+
+/// Records what would be scheduled instead of showing notifications.
+class FakeReminderService implements ReminderService {
+  List<PlannedReminder> scheduled = [];
+
+  @override
+  void Function(String? payload)? onTap;
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<String?> launchPayload() async => null;
+
+  @override
+  Future<void> schedule(List<PlannedReminder> reminders) async =>
+      scheduled = reminders;
 }

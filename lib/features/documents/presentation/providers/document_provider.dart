@@ -15,6 +15,9 @@ class DocumentProvider extends ChangeNotifier {
 
   List<SavedDocument> _documents = [];
 
+  /// Every saved document, newest first (chat and reminders read these).
+  List<SavedDocument> get all => List.unmodifiable(_documents);
+
   bool _hasLoaded = false;
   bool get hasLoaded => _hasLoaded;
 
@@ -54,6 +57,8 @@ class DocumentProvider extends ChangeNotifier {
     required int memberId,
     required DocumentCategory category,
     DocumentType? type,
+    DateTime? expiryDate,
+    String? text,
   }) async {
     _isSaving = true;
     notifyListeners();
@@ -66,6 +71,8 @@ class DocumentProvider extends ChangeNotifier {
         customCategory: category.isCustom,
         typeId: type?.id,
         typeName: type?.name,
+        expiryDate: expiryDate,
+        text: text,
       );
       _documents = [document, ..._documents];
       return document;
@@ -73,6 +80,21 @@ class DocumentProvider extends ChangeNotifier {
       _isSaving = false;
       notifyListeners();
     }
+  }
+
+  /// Sets (or with null, removes) the expiry date.
+  Future<SavedDocument> setExpiry(SavedDocument document, DateTime? date) =>
+      _replace(
+        date == null
+            ? document.copyWith(clearExpiry: true)
+            : document.copyWith(expiryDate: date),
+      );
+
+  Future<SavedDocument> _replace(SavedDocument document) async {
+    final saved = await _store.update(document);
+    _documents = [for (final d in _documents) d.id == saved.id ? saved : d];
+    notifyListeners();
+    return saved;
   }
 
   Future<void> remove(SavedDocument document) async {

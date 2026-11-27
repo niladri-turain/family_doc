@@ -15,6 +15,8 @@ class SavedDocument {
     required this.createdAt,
     this.typeId,
     this.typeName,
+    this.expiryDate,
+    this.text,
   });
 
   final String id;
@@ -33,6 +35,24 @@ class SavedDocument {
   final int size;
   final DateTime createdAt;
 
+  /// Last valid day (RC, licence, passport, insurance…), or null.
+  final DateTime? expiryDate;
+
+  /// Text read from the file on this phone (OCR), used by search and chat.
+  final String? text;
+
+  /// Days from [now] to the expiry date (negative once expired).
+  int? daysToExpiry([DateTime? now]) {
+    final e = expiryDate;
+    if (e == null) return null;
+    final t = now ?? DateTime.now();
+    return DateTime(
+      e.year,
+      e.month,
+      e.day,
+    ).difference(DateTime(t.year, t.month, t.day)).inDays;
+  }
+
   /// The file name the user sees when sharing: `<name>.<ext>`.
   String get displayFileName => fileNameFor(name, extension);
 
@@ -50,7 +70,14 @@ class SavedDocument {
     return extension.isEmpty ? safe : '$safe.$extension';
   }
 
-  SavedDocument copyWith({String? name, String? storedName}) => SavedDocument(
+  /// [clearExpiry] removes the expiry date.
+  SavedDocument copyWith({
+    String? name,
+    String? storedName,
+    DateTime? expiryDate,
+    bool clearExpiry = false,
+    String? text,
+  }) => SavedDocument(
     id: id,
     memberId: memberId,
     categoryId: categoryId,
@@ -62,6 +89,8 @@ class SavedDocument {
     storedName: storedName ?? this.storedName,
     size: size,
     createdAt: createdAt,
+    expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
+    text: text ?? this.text,
   );
 
   /// Lower-case extension without the dot ("pdf", "jpg"…), or "".
@@ -86,6 +115,8 @@ class SavedDocument {
     size: map['size'] as int? ?? 0,
     createdAt:
         DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
+    expiryDate: DateTime.tryParse(map['expiryDate'] as String? ?? ''),
+    text: map['text'] as String?,
   );
 
   Map<String, dynamic> toMap() => {
@@ -100,5 +131,7 @@ class SavedDocument {
     'storedName': storedName,
     'size': size,
     'createdAt': createdAt.toIso8601String(),
+    'expiryDate': expiryDate?.toIso8601String(),
+    'text': text,
   };
 }

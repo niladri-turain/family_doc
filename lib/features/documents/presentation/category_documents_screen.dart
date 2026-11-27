@@ -23,6 +23,7 @@ import 'widgets/document_type_dropdown.dart';
 import 'widgets/document_actions_sheet.dart';
 import 'widgets/document_tile.dart';
 import 'widgets/documents_empty_state.dart';
+import 'widgets/expiry_widgets.dart';
 import 'widgets/rename_document_sheet.dart';
 import 'widgets/upload_document_sheet.dart';
 
@@ -149,6 +150,16 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
         await _open(document);
       case DocumentAction.rename:
         await showRenameDocumentSheet(context, document);
+      case DocumentAction.expiry:
+        final date = await pickExpiryDate(
+          context,
+          initial: document.expiryDate,
+        );
+        if (date != null && mounted) {
+          await context.read<DocumentProvider>().setExpiry(document, date);
+        }
+      case DocumentAction.removeExpiry:
+        await context.read<DocumentProvider>().setExpiry(document, null);
       case DocumentAction.share:
         await _share(document, null);
       case DocumentAction.delete:

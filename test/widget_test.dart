@@ -74,6 +74,8 @@ void main() {
       httpClient: fakeBackend(),
       documentStore: MemoryDocumentStore(),
       fileActions: FakeFileActions(),
+      documentReader: FakeDocumentReader(),
+      reminderService: FakeReminderService(),
     );
     await openLogin(tester);
     await tester.enterText(find.byType(TextField), '12345');
@@ -87,6 +89,8 @@ void main() {
       httpClient: fakeBackend(),
       documentStore: MemoryDocumentStore(),
       fileActions: FakeFileActions(),
+      documentReader: FakeDocumentReader(),
+      reminderService: FakeReminderService(),
     );
     await openLogin(tester);
     await tester.enterText(find.byType(TextField), '9876543210');
@@ -105,6 +109,8 @@ void main() {
       httpClient: fakeBackend(verifyFails: true),
       documentStore: MemoryDocumentStore(),
       fileActions: FakeFileActions(),
+      documentReader: FakeDocumentReader(),
+      reminderService: FakeReminderService(),
     );
     await openLogin(tester);
     await tester.enterText(find.byType(TextField), '9876543210');

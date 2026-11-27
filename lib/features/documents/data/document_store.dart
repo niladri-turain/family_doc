@@ -20,7 +20,12 @@ abstract class DocumentStore {
     required bool customCategory,
     int? typeId,
     String? typeName,
+    DateTime? expiryDate,
+    String? text,
   });
+
+  /// Saves changed details (expiry date, read text) of a document.
+  Future<SavedDocument> update(SavedDocument document);
 
   Future<void> remove(SavedDocument document);
 
@@ -71,6 +76,8 @@ class HiveDocumentStore implements DocumentStore {
     required bool customCategory,
     int? typeId,
     String? typeName,
+    DateTime? expiryDate,
+    String? text,
   }) async {
     final box = await _openBox();
     final dir = await _files();
@@ -95,8 +102,17 @@ class HiveDocumentStore implements DocumentStore {
       storedName: storedName,
       size: await File('${dir.path}/$storedName').length(),
       createdAt: DateTime.now(),
+      expiryDate: expiryDate,
+      text: text,
     );
     await box.put(id, document.toMap());
+    return document;
+  }
+
+  @override
+  Future<SavedDocument> update(SavedDocument document) async {
+    final box = await _openBox();
+    await box.put(document.id, document.toMap());
     return document;
   }
 

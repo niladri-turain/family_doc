@@ -93,6 +93,8 @@ Future<FakeFamilyServer> start(
     httpClient: server.client,
     documentStore: MemoryDocumentStore(),
     fileActions: FakeFileActions(),
+    documentReader: FakeDocumentReader(),
+    reminderService: FakeReminderService(),
   );
   await sl<TokenStorage>().saveTokens(accessToken: 'tok');
   tester.view.physicalSize = const Size(390, 844);

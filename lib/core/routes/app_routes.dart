@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/assistant/presentation/assistant_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/verifying_screen.dart';
 import '../../features/documents/presentation/category_documents_screen.dart';
@@ -22,6 +23,7 @@ class AppRoutes {
   static const String editMember = '/family/edit'; // argument: FamilyMember
   static const String profile = '/profile';
   static const String deleteMembers = '/profile/delete-members';
+  static const String assistant = '/assistant'; // argument: AssistantArgs?
   static const String categoryDocuments =
       '/documents'; // argument: CategoryDocumentsArgs
 
@@ -36,5 +38,6 @@ class AppRoutes {
     profile: (_) => const MainShell(initialTab: AppTab.profile),
     deleteMembers: (_) => const DeleteMembersScreen(),
     categoryDocuments: (_) => const CategoryDocumentsScreen(),
+    assistant: (_) => const AssistantScreen(),
   };
 }

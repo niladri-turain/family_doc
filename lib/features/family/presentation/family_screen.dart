@@ -15,7 +15,8 @@ import 'widgets/member_tile.dart';
 
 /// My Family: fetches the member list from the API when it opens.
 /// Empty → "Add myself" (family member disabled until Self exists).
-/// Full  → list with search, + button and bottom bar.
+/// Full  → list with search, + button, bottom bar and an "Ask" button
+/// that opens the on-phone assistant chat.
 class FamilyScreen extends StatefulWidget {
   const FamilyScreen({super.key});
 
@@ -199,6 +200,15 @@ class _FamilyScreenState extends State<FamilyScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'ask',
+        tooltip: 'Ask about your documents',
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.assistant),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.white,
+        icon: const Icon(Icons.chat_bubble_outline_rounded),
+        label: const Text('Ask'),
+      ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -292,7 +302,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           AppSizes.screenPadding,
                           AppSizes.lg,
                           AppSizes.screenPadding,
-                          AppSizes.xl,
+                          // Room for the Ask button over the last member.
+                          96,
                         ),
                         itemCount: members.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),

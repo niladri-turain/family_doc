@@ -13,15 +13,18 @@ import '../../../categories/data/models/document_category.dart';
 import '../../../categories/presentation/category_style.dart';
 import '../../../family/data/models/family_member.dart';
 import '../../data/file_actions.dart';
+import '../../data/reading/document_reader.dart';
 import '../../data/models/document_type.dart';
 import '../../data/models/saved_document.dart';
 import '../document_format.dart';
 import '../providers/document_provider.dart';
 import 'document_type_dropdown.dart';
+import 'expiry_widgets.dart';
 import 'file_badge.dart';
 
 /// "Upload to Education" sheet: document type (when the category has
-/// types), document name and a file from Camera / Gallery / Files.
+/// types), document name, a file from Camera / Gallery / Files and an
+/// optional expiry date (read from a photo on the phone when it has one).
 /// Returns the saved document, or null if closed.
 Future<SavedDocument?> showUploadDocumentSheet(
   BuildContext context, {
@@ -71,6 +74,16 @@ class _UploadSheetState extends State<_UploadSheet> {
   FileSource? _source;
   bool _picking = false;
 
+  DateTime? _expiry;
+  final _expiryText = TextEditingController();
+
+  /// The expiry date came from reading the file (asks the user to check).
+  bool _expiryFromScan = false;
+  bool _reading = false;
+
+  /// Text read from the file, kept for search and chat.
+  String? _text;
+
   /// What the name field was filled with automatically (type or file name),
   /// so picking another type can replace it but not the user's own text.
   late String _autoName = _name.text;
@@ -83,6 +96,7 @@ class _UploadSheetState extends State<_UploadSheet> {
   @override
   void dispose() {
     _name.dispose();
+    _expiryText.dispose();
     super.dispose();
   }
 
@@ -122,7 +136,10 @@ class _UploadSheetState extends State<_UploadSheet> {
             ? file.name.substring(0, file.name.lastIndexOf('.'))
             : file.name;
         if (_type == null) _setAutoName(base.replaceAll('_', ' '));
+        _text = null;
+        if (_expiryFromScan) _setExpiry(null);
       });
+      _readFile(file);
     } on PlatformException catch (e) {
       if (!mounted) return;
       setState(
@@ -133,6 +150,34 @@ class _UploadSheetState extends State<_UploadSheet> {
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+  }
+
+  /// Call inside setState.
+  void _setExpiry(DateTime? date, {bool scanned = false}) {
+    _expiry = date;
+    _expiryFromScan = date != null && scanned;
+    _expiryText.text = date == null ? '' : formatDate(date);
+  }
+
+  /// Reads the photo's text on the phone; fills the expiry date when
+  /// the user hasn't chosen one.
+  Future<void> _readFile(XFile file) async {
+    setState(() => _reading = true);
+    final scan = await sl<DocumentReader>().read(file);
+    if (!mounted || _file != file) return;
+    setState(() {
+      _reading = false;
+      _text = scan?.text;
+      final found = scan?.expiryDate;
+      if (found != null && _expiry == null) _setExpiry(found, scanned: true);
+    });
+  }
+
+  Future<void> _pickExpiry() async {
+    FocusScope.of(context).unfocus();
+    final date = await pickExpiryDate(context, initial: _expiry);
+    if (date == null || !mounted) return;
+    setState(() => _setExpiry(date));
   }
 
   Future<void> _save() async {
@@ -155,6 +200,8 @@ class _UploadSheetState extends State<_UploadSheet> {
         memberId: widget.member.id,
         category: widget.category,
         type: _type,
+        expiryDate: _expiry,
+        text: _text,
       );
       if (mounted) Navigator.pop(context, document);
     } catch (_) {
@@ -284,6 +331,8 @@ class _UploadSheetState extends State<_UploadSheet> {
                 const SizedBox(height: 12),
                 _pickedFile(_file!),
               ],
+              const SizedBox(height: 16),
+              ..._expiryField(),
               if (_error != null) _errorText(_error!),
               const SizedBox(height: 20),
               AppPrimaryButton(
@@ -296,6 +345,55 @@ class _UploadSheetState extends State<_UploadSheet> {
         ),
       ),
     );
+  }
+
+  List<Widget> _expiryField() {
+    final expiry = _expiry;
+    final note = _reading
+        ? 'Reading the document for an expiry date…'
+        : _expiryFromScan
+        ? 'Found in the document. Please check it.'
+        : "Add it to get a reminder before it expires.";
+    return [
+      AppTextField(
+        label: 'Expiry date',
+        optionalHint: '(optional)',
+        controller: _expiryText,
+        hintText: 'No expiry',
+        readOnly: true,
+        onTap: _pickExpiry,
+        suffixIcon: Icons.event_outlined,
+      ),
+      const SizedBox(height: 6),
+      Row(
+        children: [
+          if (_reading) ...[
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: Text(
+              note,
+              style: AppTextStyles.caption.copyWith(
+                color: _expiryFromScan ? AppColors.warning : null,
+              ),
+            ),
+          ),
+          if (expiry != null)
+            TextButton(
+              onPressed: () => setState(() => _setExpiry(null)),
+              child: const Text('Remove'),
+            ),
+        ],
+      ),
+    ];
   }
 
   Widget _errorText(String text) => Padding(
@@ -406,7 +504,12 @@ class _UploadSheetState extends State<_UploadSheet> {
           ),
           IconButton(
             tooltip: 'Remove file',
-            onPressed: () => setState(() => _file = null),
+            onPressed: () => setState(() {
+              _file = null;
+              _text = null;
+              _reading = false;
+              if (_expiryFromScan) _setExpiry(null);
+            }),
             icon: const Icon(
               Icons.close_rounded,
               size: 20,

@@ -1,5 +1,7 @@
 import 'package:family_doc/core/widgets/app_back_button.dart';
 import 'package:family_doc/features/documents/data/file_actions.dart';
+import 'package:family_doc/features/documents/data/models/saved_document.dart';
+import 'package:family_doc/features/documents/data/reading/document_reader.dart';
 import 'package:cross_file/cross_file.dart';
 import 'dart:convert';
 
@@ -21,6 +23,8 @@ import 'helpers/fake_documents.dart';
 /// Fake server for /users/me, /family-members and /auth/logout.
 late MemoryDocumentStore savedDocs;
 late FakeFileActions fileActions;
+late FakeDocumentReader reader;
+late FakeReminderService reminders;
 
 class FakeServer {
   final members = <Map<String, dynamic>>[
@@ -155,6 +159,7 @@ class FakeServer {
 Future<FakeServer> openProfile(
   WidgetTester tester, {
   FakeServer? server,
+  List<SavedDocument> savedBefore = const [],
 }) async {
   GoogleFonts.config.allowRuntimeFetching = false;
   FlutterSecureStorage.setMockInitialValues({});
@@ -170,12 +175,16 @@ Future<FakeServer> openProfile(
         },
       );
   server ??= FakeServer();
-  savedDocs = MemoryDocumentStore();
+  savedDocs = MemoryDocumentStore()..documents.addAll(savedBefore);
   fileActions = FakeFileActions();
+  reader = FakeDocumentReader();
+  reminders = FakeReminderService();
   await setupLocator(
     httpClient: server.client,
     documentStore: savedDocs,
     fileActions: fileActions,
+    documentReader: reader,
+    reminderService: reminders,
   );
   await sl<TokenStorage>().saveTokens(accessToken: 'tok', refreshToken: 'ref');
   tester.view.physicalSize = const Size(390, 844);
@@ -498,10 +507,12 @@ void main() {
     expect(
       tester
           .widget<EditableText>(
-            find.descendant(
-              of: find.byType(BottomSheet),
-              matching: find.byType(EditableText),
-            ),
+            find
+                .descendant(
+                  of: find.byType(BottomSheet),
+                  matching: find.byType(EditableText),
+                )
+                .first,
           )
           .controller
           .text,
@@ -521,10 +532,12 @@ void main() {
     expect(inSheet('Graduation Marksheet.pdf'), findsOneWidget);
     expect(inSheet('2 KB · renamed from bsc_marksheet.pdf'), findsOneWidget);
     await tester.enterText(
-      find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.byType(EditableText),
-      ),
+      find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(EditableText),
+          )
+          .first,
       'BSc: Final/Marks',
     );
     await tester.pump();
@@ -612,4 +625,123 @@ void main() {
     expect(savedDocs.documents, isEmpty);
     expect(find.text('No education documents yet'), findsOneWidget);
   });
+
+  testWidgets(
+    'photo upload reads the expiry date, reminds, and chat finds it',
+    (tester) async {
+      // Left on the phone by a member who is no longer in My Family:
+      // never in chat or reminders.
+      await openProfile(
+        tester,
+        savedBefore: [
+          SavedDocument(
+            id: 'old',
+            memberId: 99,
+            categoryId: 1,
+            customCategory: false,
+            name: 'Graduation Marksheet',
+            fileName: 'old.png',
+            storedName: 'old/Graduation Marksheet.png',
+            size: 10,
+            createdAt: DateTime(2025),
+            expiryDate: DateTime(2031, 1, 1),
+          ),
+        ],
+      );
+      await openEducation(tester);
+
+      await tester.tap(find.text('Upload document'));
+      await tester.pumpAndSettle();
+      await tester.tap(inSheet('Choose a type'));
+      await tester.pumpAndSettle();
+      await tester.tap(inSheet('Graduation Marksheet'));
+      await tester.pumpAndSettle();
+      expect(
+        inSheet('Add it to get a reminder before it expires.'),
+        findsOneWidget,
+      );
+
+      reader.next = DocumentScan(
+        text: 'University of Calcutta\nValid till 13/03/2031',
+        expiryDate: DateTime(2031, 3, 13),
+      );
+      fileActions.nextFile = XFile.fromData(
+        Uint8List(2048),
+        name: 'marks.jpg',
+        path: '/picked/marks.jpg',
+        length: 2048,
+      );
+      await tester.tap(inSheet('Gallery'));
+      await tester.pumpAndSettle();
+      expect(reader.read_, ['marks.jpg']);
+      expect(inSheet('13 Mar 2031'), findsOneWidget);
+      expect(
+        inSheet('Found in the document. Please check it.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(inSheet('Save to Education'));
+      await tester.pumpAndSettle();
+      final saved = savedDocs.documents.last;
+      expect(saved.expiryDate, DateTime(2031, 3, 13));
+      expect(saved.text, contains('University of Calcutta'));
+      expect(find.text('Expires 13 Mar 2031'), findsOneWidget);
+
+      // Reminders: 30, 7, 1 day before and on the day, for "your" document
+      expect(reminders.scheduled.map((r) => r.title), [
+        'Graduation Marksheet expires in 30 days',
+        'Graduation Marksheet expires in 7 days',
+        'Graduation Marksheet expires tomorrow',
+        'Graduation Marksheet expires today',
+      ]);
+      expect(
+        reminders.scheduled.first.body,
+        'Your Graduation Marksheet is valid until 13 Mar 2031. '
+        'Renew it in time.',
+      );
+
+      // Chat from the Family tab
+      await tester.tap(find.byType(AppBackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomNavigationBar),
+          matching: find.text('Family'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ask'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ask Family Docs'), findsOneWidget);
+      expect(find.textContaining('I can find your family'), findsOneWidget);
+
+      // The keyboard's send key sends (not a new line)
+      await tester.enterText(
+        find.byType(TextField),
+        'amar marksheet kobe expire hobe?',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(
+          'Tomar Graduation Marksheet 13 Mar 2031 e expire hobe',
+        ),
+        findsOneWidget,
+      );
+      // One card: the old member's marksheet is not offered
+      expect(find.text('Graduation Marksheet'), findsOneWidget);
+      expect(find.text('Rahul Sharma (you)'), findsOneWidget); // not "old"
+      await tester.tap(find.text('Rahul Sharma (you)'));
+      await tester.pumpAndSettle();
+      expect(fileActions.opened, ['/docs/1/Graduation Marksheet.jpg']);
+
+      await tester.enterText(find.byType(TextField), "Show Baba's documents");
+      await tester.tap(find.byTooltip('Send'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text("No documents saved in Sunil Sharma's documents yet."),
+        findsOneWidget,
+      );
+    },
+  );
 }

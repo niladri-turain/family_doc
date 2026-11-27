@@ -5,6 +5,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../data/models/saved_document.dart';
 import '../document_format.dart';
 import 'document_thumbnail.dart';
+import 'expiry_widgets.dart';
 
 /// White row: file badge, name, type chip, "1.2 MB · Today" and a share
 /// button. Tap opens the file, ⋮ shows more actions, a long press starts
@@ -96,6 +97,10 @@ class DocumentTile extends StatelessWidget {
                       '${formatSavedDate(document.createdAt)}',
                       style: AppTextStyles.caption,
                     ),
+                    if (document.expiryDate != null) ...[
+                      const SizedBox(height: 4),
+                      ExpiryLabel(document: document),
+                    ],
                   ],
                 ),
               ),
