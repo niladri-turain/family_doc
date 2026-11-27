@@ -73,6 +73,7 @@ void main() {
     await setupLocator(
       httpClient: fakeBackend(),
       documentStore: MemoryDocumentStore(),
+      documentTypeStore: MemoryDocumentTypeStore(),
       fileActions: FakeFileActions(),
       documentReader: FakeDocumentReader(),
       reminderService: FakeReminderService(),
@@ -88,6 +89,7 @@ void main() {
     await setupLocator(
       httpClient: fakeBackend(),
       documentStore: MemoryDocumentStore(),
+      documentTypeStore: MemoryDocumentTypeStore(),
       fileActions: FakeFileActions(),
       documentReader: FakeDocumentReader(),
       reminderService: FakeReminderService(),
@@ -108,6 +110,7 @@ void main() {
     await setupLocator(
       httpClient: fakeBackend(verifyFails: true),
       documentStore: MemoryDocumentStore(),
+      documentTypeStore: MemoryDocumentTypeStore(),
       fileActions: FakeFileActions(),
       documentReader: FakeDocumentReader(),
       reminderService: FakeReminderService(),

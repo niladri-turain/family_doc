@@ -92,6 +92,7 @@ Future<FakeFamilyServer> start(
   await setupLocator(
     httpClient: server.client,
     documentStore: MemoryDocumentStore(),
+    documentTypeStore: MemoryDocumentTypeStore(),
     fileActions: FakeFileActions(),
     documentReader: FakeDocumentReader(),
     reminderService: FakeReminderService(),

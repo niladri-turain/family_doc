@@ -24,6 +24,9 @@ class AppTextField extends StatefulWidget {
     this.locked = false,
     this.onTap,
     this.onChanged,
+    this.onSubmitted,
+    this.autofocus = false,
+    this.textInputAction,
   });
 
   final String label;
@@ -42,6 +45,9 @@ class AppTextField extends StatefulWidget {
   final bool locked;
   final VoidCallback? onTap;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final bool autofocus;
+  final TextInputAction? textInputAction;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -141,6 +147,9 @@ class _AppTextFieldState extends State<AppTextField> {
                       enableInteractiveSelection: !widget.locked,
                       onTap: picker ? null : widget.onTap,
                       onChanged: widget.onChanged,
+                      onSubmitted: widget.onSubmitted,
+                      autofocus: widget.autofocus,
+                      textInputAction: widget.textInputAction,
                       keyboardType: widget.keyboardType,
                       inputFormatters: widget.inputFormatters,
                       textCapitalization: widget.textCapitalization,

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:family_doc/features/documents/data/document_store.dart';
+import 'package:family_doc/features/documents/data/document_type_store.dart';
+import 'package:family_doc/features/documents/data/models/document_type.dart';
 import 'package:family_doc/features/documents/data/file_actions.dart';
 import 'package:family_doc/features/documents/data/models/saved_document.dart';
 import 'package:family_doc/features/documents/data/reading/document_reader.dart';
@@ -133,4 +135,34 @@ class FakeReminderService implements ReminderService {
   @override
   Future<void> schedule(List<PlannedReminder> reminders) async =>
       scheduled = reminders;
+}
+
+/// The user's own document types, in memory instead of Hive.
+class MemoryDocumentTypeStore implements DocumentTypeStore {
+  final types = <DocumentType>[];
+  var _next = 0;
+
+  @override
+  Future<List<DocumentType>> loadAll() async => [...types];
+
+  @override
+  Future<DocumentType> add({
+    required String name,
+    required int categoryId,
+    required bool customCategory,
+  }) async {
+    final type = DocumentType(
+      id: -(++_next),
+      name: name,
+      categoryId: categoryId,
+      customCategory: customCategory,
+      isCustom: true,
+    );
+    types.add(type);
+    return type;
+  }
+
+  @override
+  Future<void> remove(DocumentType type) async =>
+      types.removeWhere((t) => t.id == type.id);
 }

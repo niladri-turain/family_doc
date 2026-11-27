@@ -19,6 +19,7 @@ import '../data/file_actions.dart';
 import '../data/models/document_type.dart';
 import '../data/models/saved_document.dart';
 import 'providers/document_provider.dart';
+import 'widgets/add_document_type_dialog.dart';
 import 'widgets/document_type_dropdown.dart';
 import 'widgets/document_actions_sheet.dart';
 import 'widgets/document_tile.dart';
@@ -191,10 +192,10 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
     }
     final category = args.category;
     final style = CategoryStyle.of(category.name);
-    final all = context.watch<DocumentProvider>().documentsFor(
-      args.member?.id,
-      category,
-    );
+    final saved = context.watch<DocumentProvider>();
+    final all = saved.documentsFor(args.member?.id, category);
+    // Server types, then the ones the user added (kept on the phone).
+    final types = [..._types, ...saved.customTypesFor(category)];
     final selected = _selected;
     final documents = selected == null
         ? all
@@ -262,7 +263,7 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
                           CategoryIconBox(icon: style.icon, color: style.color),
                         ],
                       ),
-                    ..._typeFilter(style, count),
+                    ..._typeFilter(category, style, types, count),
                   ],
                 ),
               ),
@@ -358,9 +359,42 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
     );
   }
 
-  /// Label + dropdown; skeleton while loading, error with Retry on failure,
-  /// nothing for categories without types.
-  List<Widget> _typeFilter(CategoryStyle style, int documentCount) {
+  Future<void> _addType(
+    DocumentCategory category,
+    List<DocumentType> types,
+  ) async {
+    final type = await addDocumentType(context, category, existing: types);
+    if (type == null || !mounted) return;
+    setState(() {
+      _selected = type;
+      _picked.clear();
+    });
+  }
+
+  Future<void> _removeType(DocumentType type) async {
+    final ok = await showAppConfirmDialog(
+      context,
+      title: 'Remove "${type.name}"?',
+      message:
+          'It goes from the list. Documents saved with this type stay as '
+          'they are.',
+      confirmLabel: 'Remove',
+    );
+    if (!ok || !mounted) return;
+    await context.read<DocumentProvider>().removeCustomType(type);
+    if (mounted && _selected?.id == type.id) {
+      setState(() => _selected = null);
+    }
+  }
+
+  /// Label + dropdown; skeleton while the server types load, error with
+  /// Retry on failure. "+ Add new type" lets the user add their own.
+  List<Widget> _typeFilter(
+    DocumentCategory category,
+    CategoryStyle style,
+    List<DocumentType> types,
+    int documentCount,
+  ) {
     final Widget box;
     if (_loading && _types.isEmpty) {
       box = Container(
@@ -394,11 +428,9 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
           ],
         ),
       );
-    } else if (_types.isEmpty) {
-      return const [];
     } else {
       box = DocumentTypeDropdown(
-        types: _types,
+        types: types,
         selected: _selected,
         style: style,
         allCount: documentCount,
@@ -406,6 +438,8 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
           _selected = t;
           _picked.clear();
         }),
+        onAdd: () => _addType(category, types),
+        onRemove: _removeType,
       );
     }
     return [
@@ -431,7 +465,10 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
       message: _types.isEmpty
           ? 'Upload documents to keep them safe and easy to find.'
           : 'Choose the type first so they stay organised.',
-      types: _types,
+      types: [
+        ..._types,
+        ...context.read<DocumentProvider>().customTypesFor(category),
+      ],
       onTypeTap: (t) => setState(() => _selected = t),
     );
   }

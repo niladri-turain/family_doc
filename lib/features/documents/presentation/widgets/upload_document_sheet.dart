@@ -18,6 +18,7 @@ import '../../data/models/document_type.dart';
 import '../../data/models/saved_document.dart';
 import '../document_format.dart';
 import '../providers/document_provider.dart';
+import 'add_document_type_dialog.dart';
 import 'document_type_dropdown.dart';
 import 'expiry_widgets.dart';
 import 'file_badge.dart';
@@ -213,8 +214,11 @@ class _UploadSheetState extends State<_UploadSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final saving = context.watch<DocumentProvider>().isSaving;
+    final documents = context.watch<DocumentProvider>();
+    final saving = documents.isSaving;
     final category = widget.category;
+    // Server types, then the user's own (added here or in the list).
+    final types = [...widget.types, ...documents.customTypesFor(category)];
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
@@ -272,17 +276,30 @@ class _UploadSheetState extends State<_UploadSheet> {
                   ),
                 ],
               ),
-              if (widget.types.isNotEmpty) ...[
+              ...[
                 const SizedBox(height: 20),
-                Text('Select document type', style: AppTextStyles.label),
+                Text(
+                  widget.types.isEmpty
+                      ? 'Document type (optional)'
+                      : 'Select document type',
+                  style: AppTextStyles.label,
+                ),
                 const SizedBox(height: AppSizes.sm),
                 DocumentTypeDropdown(
-                  types: widget.types,
+                  types: types,
                   selected: _type,
                   style: CategoryStyle.of(category.name),
                   allLabel: null,
                   error: _typeError,
                   onChanged: _pickType,
+                  onAdd: () async {
+                    final type = await addDocumentType(
+                      context,
+                      category,
+                      existing: types,
+                    );
+                    if (type != null && mounted) _pickType(type);
+                  },
                 ),
                 if (_typeError) _errorText('Choose a document type'),
               ],

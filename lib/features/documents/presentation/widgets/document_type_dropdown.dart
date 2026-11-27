@@ -19,7 +19,15 @@ class DocumentTypeDropdown extends StatefulWidget {
     this.allCount = 0,
     this.hint = 'Choose a type',
     this.error = false,
+    this.onAdd,
+    this.onRemove,
   });
+
+  /// Shows "+ Add new type" at the end of the list.
+  final VoidCallback? onAdd;
+
+  /// Shows a delete button on the user's own types.
+  final ValueChanged<DocumentType>? onRemove;
 
   final String? allLabel;
 
@@ -134,6 +142,7 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
                 const Divider(height: 1, color: AppColors.border),
                 if (widget.allLabel != null) _option(null, widget.allLabel!),
                 for (final t in widget.types) _option(t, t.name),
+                if (widget.onAdd != null) _addRow(),
               ],
             ],
           ),
@@ -147,6 +156,47 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
     if (label == null) return null;
     return widget.allCount > 0 ? '$label (${widget.allCount})' : label;
   }
+
+  Widget _addRow() => Material(
+    color: AppColors.white,
+    child: InkWell(
+      onTap: () {
+        setState(() => _open = false);
+        widget.onAdd!();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                size: 18,
+                color: AppColors.white,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Add new type',
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _option(DocumentType? type, String label) {
     final active = type?.id == widget.selected?.id;
@@ -172,6 +222,20 @@ class _DocumentTypeDropdownState extends State<DocumentTypeDropdown> {
                   Icons.check_rounded,
                   size: 20,
                   color: AppColors.primary,
+                ),
+              if (type != null && type.isCustom && widget.onRemove != null)
+                IconButton(
+                  tooltip: 'Remove $label',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    setState(() => _open = false);
+                    widget.onRemove!(type);
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
             ],
           ),

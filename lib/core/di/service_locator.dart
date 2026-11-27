@@ -9,6 +9,7 @@ import '../../features/categories/data/category_service.dart';
 import '../../features/categories/presentation/providers/category_provider.dart';
 import '../../features/documents/data/document_service.dart';
 import '../../features/documents/data/document_store.dart';
+import '../../features/documents/data/document_type_store.dart';
 import '../../features/documents/data/file_actions.dart';
 import '../../features/documents/data/reading/document_reader.dart';
 import '../../features/documents/presentation/providers/document_provider.dart';
@@ -28,6 +29,7 @@ Future<void> setupLocator({
   http.Client? httpClient,
   TokenStorage? tokenStorage,
   DocumentStore? documentStore,
+  DocumentTypeStore? documentTypeStore,
   FileActions? fileActions,
   DocumentReader? documentReader,
   ReminderService? reminderService,
@@ -66,7 +68,12 @@ Future<void> setupLocator({
   sl.registerLazySingleton<DocumentReader>(
     () => documentReader ?? DocumentReader(),
   );
-  sl.registerFactory<DocumentProvider>(() => DocumentProvider(store: sl()));
+  sl.registerLazySingleton<DocumentTypeStore>(
+    () => documentTypeStore ?? HiveDocumentTypeStore(),
+  );
+  sl.registerFactory<DocumentProvider>(
+    () => DocumentProvider(store: sl(), typeStore: sl()),
+  );
 
   // Expiry reminders and the on-phone assistant
   sl.registerLazySingleton<ReminderService>(

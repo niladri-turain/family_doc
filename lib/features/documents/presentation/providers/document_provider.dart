@@ -3,15 +3,24 @@ import 'package:flutter/foundation.dart';
 
 import '../../../categories/data/models/document_category.dart';
 import '../../data/document_store.dart';
+import '../../data/document_type_store.dart';
 import '../../data/models/document_type.dart';
 import '../../data/models/saved_document.dart';
 
 /// Documents saved on this phone, per member and category.
 /// Read with `context.watch<DocumentProvider>()`.
 class DocumentProvider extends ChangeNotifier {
-  DocumentProvider({required DocumentStore store}) : _store = store;
+  DocumentProvider({
+    required DocumentStore store,
+    required DocumentTypeStore typeStore,
+  }) : _store = store,
+       _typeStore = typeStore;
 
   final DocumentStore _store;
+  final DocumentTypeStore _typeStore;
+
+  /// Types the user added, oldest first.
+  List<DocumentType> _customTypes = [];
 
   List<SavedDocument> _documents = [];
 
@@ -30,6 +39,13 @@ class DocumentProvider extends ChangeNotifier {
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (e) {
       debugPrint('Could not read saved documents: $e');
+    }
+    try {
+      _customTypes = await _typeStore.loadAll()
+        // Ids are minus the creation time: oldest first.
+        ..sort((a, b) => b.id.compareTo(a.id));
+    } catch (e) {
+      debugPrint('Could not read your document types: $e');
     }
     _hasLoaded = true;
     notifyListeners();
@@ -129,4 +145,33 @@ class DocumentProvider extends ChangeNotifier {
       removeWhere((d) => _inCategory(d, category));
 
   Future<String> pathOf(SavedDocument document) => _store.pathOf(document);
+
+  /// The user's own types for [category], in the order they were added.
+  List<DocumentType> customTypesFor(DocumentCategory category) => [
+    for (final t in _customTypes)
+      if (t.categoryId == category.id && t.customCategory == category.isCustom)
+        t,
+  ];
+
+  /// Adds a type the user typed; it stays after the app restarts.
+  Future<DocumentType> addCustomType(
+    DocumentCategory category,
+    String name,
+  ) async {
+    final type = await _typeStore.add(
+      name: name.trim(),
+      categoryId: category.id,
+      customCategory: category.isCustom,
+    );
+    _customTypes = [..._customTypes, type];
+    notifyListeners();
+    return type;
+  }
+
+  /// Removes one of the user's types. Documents keep their type name.
+  Future<void> removeCustomType(DocumentType type) async {
+    await _typeStore.remove(type);
+    _customTypes = _customTypes.where((t) => t.id != type.id).toList();
+    notifyListeners();
+  }
 }

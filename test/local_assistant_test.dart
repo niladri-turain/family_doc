@@ -218,6 +218,9 @@ void main() {
       (await ask('amar marksheet gulo dao')).text,
       'Ei nao tomar Graduation Marksheet.',
     );
-    expect((await ask('passport ar licence dao')).text, startsWith('Family te'));
+    expect(
+      (await ask('passport ar licence dao')).text,
+      startsWith('Family te'),
+    );
   });
 }

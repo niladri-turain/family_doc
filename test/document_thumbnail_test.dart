@@ -47,7 +47,10 @@ void main() {
   Future<void> show(WidgetTester tester, SavedDocument document) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => DocumentProvider(store: _DiskStore(dir)),
+        create: (_) => DocumentProvider(
+          store: _DiskStore(dir),
+          typeStore: MemoryDocumentTypeStore(),
+        ),
         child: MaterialApp(
           home: Center(child: DocumentThumbnail(document: document)),
         ),

@@ -1,5 +1,6 @@
 import 'package:family_doc/core/widgets/app_back_button.dart';
 import 'package:family_doc/features/documents/data/file_actions.dart';
+import 'package:family_doc/features/documents/data/models/document_type.dart';
 import 'package:family_doc/features/documents/data/models/saved_document.dart';
 import 'package:family_doc/features/documents/data/reading/document_reader.dart';
 import 'package:cross_file/cross_file.dart';
@@ -24,6 +25,7 @@ import 'helpers/fake_documents.dart';
 late MemoryDocumentStore savedDocs;
 late FakeFileActions fileActions;
 late FakeDocumentReader reader;
+late MemoryDocumentTypeStore savedTypes;
 late FakeReminderService reminders;
 
 class FakeServer {
@@ -160,6 +162,7 @@ Future<FakeServer> openProfile(
   WidgetTester tester, {
   FakeServer? server,
   List<SavedDocument> savedBefore = const [],
+  List<DocumentType> typesBefore = const [],
 }) async {
   GoogleFonts.config.allowRuntimeFetching = false;
   FlutterSecureStorage.setMockInitialValues({});
@@ -178,10 +181,12 @@ Future<FakeServer> openProfile(
   savedDocs = MemoryDocumentStore()..documents.addAll(savedBefore);
   fileActions = FakeFileActions();
   reader = FakeDocumentReader();
+  savedTypes = MemoryDocumentTypeStore()..types.addAll(typesBefore);
   reminders = FakeReminderService();
   await setupLocator(
     httpClient: server.client,
     documentStore: savedDocs,
+    documentTypeStore: savedTypes,
     fileActions: fileActions,
     documentReader: reader,
     reminderService: reminders,
@@ -476,6 +481,112 @@ void main() {
     await tester.tap(find.text('All types').last);
     await tester.pumpAndSettle();
     expect(find.text('No education documents yet'), findsOneWidget);
+  });
+
+  testWidgets('add your own document type: popup, list, upload, kept, remove', (
+    tester,
+  ) async {
+    await openProfile(tester);
+    await openEducation(tester);
+
+    // Dropdown → "+ Add new type" → popup
+    await tester.tap(find.text('All types'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add new type'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add document type'), findsOneWidget);
+    expect(
+      find.text('It will show in Education for every member.'),
+      findsOneWidget,
+    );
+    final field = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byType(EditableText),
+    );
+
+    // Empty and duplicate names are refused
+    await tester.tap(find.text('Add type'));
+    await tester.pump();
+    expect(find.text('Enter a type name'), findsOneWidget);
+    await tester.enterText(field, '  graduation   marksheet ');
+    await tester.tap(find.text('Add type'));
+    await tester.pump();
+    expect(
+      find.text('"graduation marksheet" is already in Education'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(field, '10th Admit Card');
+    await tester.tap(find.text('Add type'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect(savedTypes.types.single.name, '10th Admit Card');
+    expect(savedTypes.types.single.categoryId, 1);
+    // Picked right away, and listed after the server's types
+    expect(find.text('No 10th Admit Card yet'), findsOneWidget);
+    await tester.tap(find.text('10th Admit Card').first);
+    await tester.pumpAndSettle();
+    final diploma = tester.getTopLeft(find.text('Graduation Marksheet').last);
+    final mine = tester.getTopLeft(find.text('10th Admit Card').last);
+    expect(mine.dy > diploma.dy, isTrue);
+    await tester.tap(find.text('All types').last);
+    await tester.pumpAndSettle();
+
+    // Upload with it; a second own type can be added from the upload form
+    await tester.tap(find.text('Upload document'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('Choose a type'));
+    await tester.pumpAndSettle();
+    expect(inSheet('10th Admit Card'), findsOneWidget);
+    await tester.tap(inSheet('10th Admit Card'));
+    await tester.pumpAndSettle();
+    fileActions.nextFile = XFile.fromData(
+      Uint8List(100),
+      name: 'admit.pdf',
+      path: '/picked/admit.pdf',
+      length: 100,
+    );
+    await tester.tap(inSheet('Files / PDF'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('Save to Education'));
+    await tester.pumpAndSettle();
+    final saved = savedDocs.documents.single;
+    expect(saved.typeName, '10th Admit Card');
+    expect(saved.typeId, savedTypes.types.single.id);
+
+    // Remove: asks first; the saved document keeps its type name
+    await tester.tap(find.text('All types (1)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Remove 10th Admit Card'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove "10th Admit Card"?'), findsOneWidget);
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+    expect(savedTypes.types, isEmpty);
+    expect(savedDocs.documents.single.typeName, '10th Admit Card');
+  });
+
+  testWidgets('own types saved before show after the app starts again', (
+    tester,
+  ) async {
+    await openProfile(
+      tester,
+      typesBefore: const [
+        DocumentType(
+          id: -5,
+          name: 'Sports Certificate',
+          categoryId: 1,
+          isCustom: true,
+        ),
+        // Another category's type stays there
+        DocumentType(id: -6, name: 'Bike Loan', categoryId: 3, isCustom: true),
+      ],
+    );
+    await openEducation(tester);
+    await tester.tap(find.text('All types'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sports Certificate'), findsWidgets);
+    expect(find.text('Bike Loan'), findsNothing);
   });
 
   testWidgets('upload a file: listed for that member, opens, shares, deletes', (
