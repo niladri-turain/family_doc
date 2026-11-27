@@ -57,4 +57,13 @@ class FileActions {
           sharePositionOrigin: origin,
         ),
       );
+
+  /// Shares several files in one go (selected in the list).
+  Future<void> shareAll(List<String> paths, {Rect? origin}) =>
+      SharePlus.instance.share(
+        ShareParams(
+          files: [for (final p in paths) XFile(p)],
+          sharePositionOrigin: origin,
+        ),
+      );
 }

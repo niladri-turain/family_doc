@@ -37,6 +37,8 @@ class CategoryDocumentsArgs {
 /// One category's documents for a member (saved on this phone), with a
 /// document type filter (types from GET /api/v1/document-types?categoryId=).
 /// Tap a document to open it, share it from its button, ⋮ to rename or delete.
+/// Long press starts selecting; then taps add or remove documents and the
+/// bottom button shares all the selected ones together.
 class CategoryDocumentsScreen extends StatefulWidget {
   const CategoryDocumentsScreen({super.key});
 
@@ -51,6 +53,10 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
   DocumentType? _selected;
   bool _loading = false;
   ApiException? _error;
+
+  /// Ids of the documents picked for sharing; empty when not selecting.
+  final Set<String> _picked = {};
+  bool get _selecting => _picked.isNotEmpty;
 
   @override
   void didChangeDependencies() {
@@ -117,6 +123,24 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
     }
   }
 
+  void _toggle(SavedDocument document) => setState(() {
+    if (!_picked.remove(document.id)) _picked.add(document.id);
+  });
+
+  void _clearSelection() => setState(_picked.clear);
+
+  Future<void> _shareSelected(List<SavedDocument> documents) async {
+    if (documents.isEmpty) return;
+    final provider = context.read<DocumentProvider>();
+    try {
+      final paths = [for (final d in documents) await provider.pathOf(d)];
+      await sl<FileActions>().shareAll(paths);
+      if (mounted) _clearSelection();
+    } catch (_) {
+      if (mounted) _snack('Could not share these files.');
+    }
+  }
+
   Future<void> _more(SavedDocument document) async {
     final action = await showDocumentActionsSheet(context, document);
     if (!mounted || action == null) return;
@@ -164,105 +188,162 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
     final documents = selected == null
         ? all
         : all.where((d) => d.typeId == selected.id).toList();
+    // Drop picks that were deleted or filtered out.
+    _picked.retainWhere((id) => documents.any((d) => d.id == id));
+    final picked = documents.where((d) => _picked.contains(d.id)).toList();
     final count = all.length;
     final subtitle = [
       if (args.member != null) args.member!.fullName,
       '$count ${count == 1 ? 'document' : 'documents'}',
     ].join(' · ');
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.screenPadding,
-                AppSizes.lg,
-                AppSizes.screenPadding,
-                AppSizes.lg,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const AppBackButton(),
-                      const SizedBox(width: AppSizes.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              category.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.title.copyWith(fontSize: 20),
+    return PopScope(
+      canPop: !_selecting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _clearSelection();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                color: AppColors.white,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.screenPadding,
+                  AppSizes.lg,
+                  AppSizes.screenPadding,
+                  AppSizes.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_selecting)
+                      _selectionBar(picked.length, documents)
+                    else
+                      Row(
+                        children: [
+                          const AppBackButton(),
+                          const SizedBox(width: AppSizes.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  category.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.title.copyWith(
+                                    fontSize: 20,
+                                  ),
+                                ),
+                                Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.caption,
+                                ),
+                              ],
                             ),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.caption,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSizes.md),
-                      CategoryIconBox(icon: style.icon, color: style.color),
-                    ],
-                  ),
-                  ..._typeFilter(style, count),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppColors.border),
-            Expanded(
-              child: RefreshIndicator(
-                color: AppColors.primary,
-                onRefresh: _loadTypes,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    AppSizes.screenPadding,
-                    documents.isEmpty ? 40 : AppSizes.lg,
-                    AppSizes.screenPadding,
-                    AppSizes.xl,
-                  ),
-                  children: documents.isEmpty
-                      ? [_empty(category)]
-                      : [
-                          for (final d in documents) ...[
-                            DocumentTile(
-                              document: d,
-                              onOpen: () => _open(d),
-                              onShare: (origin) => _share(d, origin),
-                              onMore: () => _more(d),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
+                          ),
+                          const SizedBox(width: AppSizes.md),
+                          CategoryIconBox(icon: style.icon, color: style.color),
                         ],
+                      ),
+                    ..._typeFilter(style, count),
+                  ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.screenPadding,
-                AppSizes.sm,
-                AppSizes.screenPadding,
-                AppSizes.lg,
+              const Divider(height: 1, color: AppColors.border),
+              Expanded(
+                child: RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: _loadTypes,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSizes.screenPadding,
+                      documents.isEmpty ? 40 : AppSizes.lg,
+                      AppSizes.screenPadding,
+                      AppSizes.xl,
+                    ),
+                    children: documents.isEmpty
+                        ? [_empty(category)]
+                        : [
+                            for (final d in documents) ...[
+                              DocumentTile(
+                                document: d,
+                                selecting: _selecting,
+                                selected: _picked.contains(d.id),
+                                onOpen: () =>
+                                    _selecting ? _toggle(d) : _open(d),
+                                onLongPress: () => _toggle(d),
+                                onShare: (origin) => _share(d, origin),
+                                onMore: () => _more(d),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
+                  ),
+                ),
               ),
-              child: AppPrimaryButton(
-                label: 'Upload document',
-                leadingIcon: Icons.file_upload_outlined,
-                onPressed: _upload,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.screenPadding,
+                  AppSizes.sm,
+                  AppSizes.screenPadding,
+                  AppSizes.lg,
+                ),
+                child: _selecting
+                    ? AppPrimaryButton(
+                        label:
+                            'Share ${picked.length} '
+                            '${picked.length == 1 ? 'document' : 'documents'}',
+                        leadingIcon: Icons.share_outlined,
+                        onPressed: () => _shareSelected(picked),
+                      )
+                    : AppPrimaryButton(
+                        label: 'Upload document',
+                        leadingIcon: Icons.file_upload_outlined,
+                        onPressed: _upload,
+                      ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// Replaces the title row while selecting: ✕, "2 selected", Select all.
+  Widget _selectionBar(int count, List<SavedDocument> documents) {
+    final allPicked = count == documents.length;
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Cancel selection',
+          onPressed: _clearSelection,
+          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+        ),
+        const SizedBox(width: AppSizes.sm),
+        Expanded(
+          child: Text(
+            '$count selected',
+            style: AppTextStyles.title.copyWith(fontSize: 20),
+          ),
+        ),
+        TextButton(
+          onPressed: () => setState(() {
+            if (allPicked) {
+              _picked.clear();
+            } else {
+              _picked.addAll(documents.map((d) => d.id));
+            }
+          }),
+          child: Text(allPicked ? 'Clear' : 'Select all'),
+        ),
+      ],
     );
   }
 
@@ -310,7 +391,10 @@ class _CategoryDocumentsScreenState extends State<CategoryDocumentsScreen> {
         selected: _selected,
         style: style,
         allCount: documentCount,
-        onChanged: (t) => setState(() => _selected = t),
+        onChanged: (t) => setState(() {
+          _selected = t;
+          _picked.clear();
+        }),
       );
     }
     return [

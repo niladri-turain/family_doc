@@ -582,10 +582,28 @@ void main() {
     await tester.tap(find.text('Rahul Sharma'));
     await tester.pumpAndSettle();
 
-    // Long press → Delete → confirm
+    // Long press selects; tap toggles; bottom button shares the selection
     await tester.tap(find.text('Education'));
     await tester.pumpAndSettle();
     await tester.longPress(find.text('2 KB · Today'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(find.text('Upload document'), findsNothing);
+    expect(find.byTooltip('Share B.Sc Final Marksheet'), findsNothing);
+    await tester.tap(find.text('2 KB · Today'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upload document'), findsOneWidget);
+    await tester.longPress(find.text('2 KB · Today'));
+    await tester.pumpAndSettle();
+    fileActions.shared.clear();
+    await tester.tap(find.text('Share 1 document'));
+    await tester.pumpAndSettle();
+    expect(fileActions.shared, ['/docs/1/B.Sc Final Marksheet.pdf']);
+    expect(fileActions.opened, hasLength(1));
+    expect(find.text('Upload document'), findsOneWidget);
+
+    // ⋮ → Delete → confirm
+    await tester.tap(find.byTooltip('More for B.Sc Final Marksheet'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();

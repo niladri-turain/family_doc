@@ -86,4 +86,8 @@ class FakeFileActions implements FileActions {
   @override
   Future<void> share(String path, {required String name, Rect? origin}) async =>
       shared.add(path);
+
+  @override
+  Future<void> shareAll(List<String> paths, {Rect? origin}) async =>
+      shared.addAll(paths);
 }
